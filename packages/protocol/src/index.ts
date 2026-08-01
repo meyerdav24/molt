@@ -24,3 +24,11 @@ export {
   type PolicyRequest,
   type PolicyTriggerName,
 } from './policy.js';
+export {
+  countersignReceiptAsTa,
+  signReceiptAsAgent,
+  verifyReceipt,
+  type ReceiptBody,
+  type SignedReceipt,
+  type VerificationResult,
+} from './receipt.js';

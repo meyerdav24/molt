@@ -28,3 +28,20 @@ export {
   type SignedHeaders,
   type SignRequestInput,
 } from './stamp.js';
+export {
+  cartHash,
+  deriveIdempotencyKey,
+  normalizeCart,
+  preflightValidate,
+  type CartLine,
+  type NormalizedCart,
+  type PreflightViolation,
+} from './preflight.js';
+export {
+  parseDisplayedMoney,
+  shopifyCheckout,
+  type CardPayload,
+  type ShippingProfile,
+  type ShopifyCheckoutRequest,
+  type ShopifyCheckoutResult,
+} from './shopify.js';
