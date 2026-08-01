@@ -12,11 +12,14 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { resolveMerchant } from '@molt/adapters';
 import { z } from 'zod';
+import { appendAudit } from './audit.js';
 import { loadConfig, type MoltConfig } from './config.js';
 import { purchase } from './purchase.js';
+import { checkRate } from './ratelimit.js';
 import { loadOrCreateSigningKey, type AgentSigningKey } from './signing.js';
 import { TaClient, TaError } from './ta.js';
 
@@ -39,8 +42,77 @@ function asToolError(e: unknown) {
   return textResult({ error: e instanceof Error ? e.message : String(e) }, true);
 }
 
+/** Merchants live on the web: http(s) only, no file:, javascript:, etc. */
+function assertHttpUrl(raw: string): string {
+  const url = new URL(raw);
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error(`unsupported URL scheme '${url.protocol}' - merchant URLs must be http(s)`);
+  }
+  return raw;
+}
+
+type ToolResult = ReturnType<typeof textResult>;
+
+/** One-word outcome for the audit line, never full payloads. */
+function summarize(result: ToolResult): string {
+  try {
+    const parsed = JSON.parse(result.content[0]?.text ?? '{}') as {
+      status?: string;
+      error?: string;
+    };
+    return parsed.status ?? parsed.error ?? (result.isError ? 'error' : 'ok');
+  } catch {
+    return result.isError ? 'error' : 'ok';
+  }
+}
+
+/**
+ * OT-041 wrapper around every tool: per-key rate limit in, audit line out,
+ * and no exception ever escapes as a crash.
+ */
+function guarded<A>(
+  cfg: MoltConfig,
+  rateKey: string,
+  tool: string,
+  handler: (args: A) => Promise<ToolResult>,
+): (args: A) => Promise<ToolResult> {
+  return async (args) => {
+    const started = Date.now();
+    let result: ToolResult;
+    const wait = checkRate(rateKey, tool);
+    if (wait !== null) {
+      result = textResult(
+        {
+          error: 'rate_limited',
+          retry_in_ms: wait,
+          message: `too many ${tool} calls; wait ${Math.ceil(wait / 1000)}s and try again`,
+        },
+        true,
+      );
+    } else {
+      try {
+        result = await handler(args);
+      } catch (e) {
+        result = asToolError(e);
+      }
+    }
+    appendAudit(cfg.auditLogPath, {
+      ts: new Date(started).toISOString(),
+      tool,
+      args,
+      outcome: summarize(result),
+      duration_ms: Date.now() - started,
+    });
+    return result;
+  };
+}
+
 function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey): McpServer {
   const server = new McpServer({ name: 'molt', version: '0.1.0' });
+  // rate-limit bucket per agent key (hashed - the key itself stays out of memory dumps)
+  const rateKey = cfg.agentKey
+    ? createHash('sha256').update(cfg.agentKey).digest('hex').slice(0, 16)
+    : 'anonymous';
 
   server.registerTool(
     'open_tab',
@@ -53,14 +125,10 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         'an agent key in the dashboard and configures it as MOLT_AGENT_KEY for this server.',
       inputSchema: {},
     },
-    async () => {
-      try {
-        const res = await ta.call('POST', '/v1/tabs');
-        return textResult(res.body);
-      } catch (e) {
-        return asToolError(e);
-      }
-    },
+    guarded(cfg, rateKey, 'open_tab', async () => {
+      const res = await ta.call('POST', '/v1/tabs');
+      return textResult(res.body);
+    }),
   );
 
   server.registerTool(
@@ -73,13 +141,9 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         'L3 hand a link to the human). Call this before purchase to know what to expect.',
       inputSchema: { url: z.string().url() },
     },
-    async ({ url }) => {
-      try {
-        return textResult(await resolveMerchant(url));
-      } catch (e) {
-        return asToolError(e);
-      }
-    },
+    guarded(cfg, rateKey, 'resolve_merchant', async ({ url }: { url: string }) => {
+      return textResult(await resolveMerchant(assertHttpUrl(url)));
+    }),
   );
 
   server.registerTool(
@@ -106,7 +170,8 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
               quantity: z.number().int().min(1).max(99),
             }),
           )
-          .min(1),
+          .min(1)
+          .max(20),
         max_amount_minor: z
           .number()
           .int()
@@ -122,7 +187,7 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         ),
       },
     },
-    async (input) => {
+    guarded(cfg, rateKey, 'purchase', async (input: Parameters<typeof purchase>[3]) => {
       if (!ta.hasKey) {
         return textResult(
           {
@@ -133,14 +198,11 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
           true,
         );
       }
-      try {
-        const outcome = await purchase(cfg, ta, signingKey, input);
-        const isError = outcome.status === 'refused' || outcome.status === 'failed';
-        return textResult(outcome, isError);
-      } catch (e) {
-        return asToolError(e);
-      }
-    },
+      assertHttpUrl(input.merchant_url);
+      const outcome = await purchase(cfg, ta, signingKey, input);
+      const isError = outcome.status === 'refused' || outcome.status === 'failed';
+      return textResult(outcome, isError);
+    }),
   );
 
   server.registerTool(
@@ -152,17 +214,13 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         'and rail, with evidence hashes and the mandate chain. Use it to report spending to the user.',
       inputSchema: { tab_id: UUID },
     },
-    async ({ tab_id }) => {
+    guarded(cfg, rateKey, 'get_receipts', async ({ tab_id }: { tab_id: string }) => {
       if (!ta.hasKey) {
         return textResult({ error: 'not_configured', message: 'MOLT_AGENT_KEY is not set.' }, true);
       }
-      try {
-        const res = await ta.call('GET', `/v1/tabs/${tab_id}/receipts`);
-        return textResult(res.body, res.status !== 200);
-      } catch (e) {
-        return asToolError(e);
-      }
-    },
+      const res = await ta.call('GET', `/v1/tabs/${tab_id}/receipts`);
+      return textResult(res.body, res.status !== 200);
+    }),
   );
 
   return server;

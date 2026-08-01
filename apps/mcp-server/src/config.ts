@@ -14,6 +14,10 @@
  *                                (default ~/.molt/agent-signing-key.pem, auto-created)
  *   MOLT_EVIDENCE_DIR            evidence artifacts (default ~/.molt/evidence)
  *   MOLT_HEADED                  set to 1 to run checkouts headed (debugging)
+ *   MOLT_AUDIT_LOG_PATH          JSONL audit log, one line per tool call
+ *                                (default ~/.molt/audit.jsonl)
+ *   MOLT_CHECKOUT_TIMEOUT_MS     hard wall clock per browser pass
+ *                                (default 120000, clamped to 10s..600s)
  *   MOLT_BOGUS_GATEWAY_HOSTS     comma-separated dev-store hosts whose checkout
  *                                runs Shopify's Bogus Gateway. Test-mode Issuing
  *                                cards cannot be charged across Stripe accounts,
@@ -34,6 +38,8 @@ export interface MoltConfig {
   bogusGatewayHosts: Set<string>;
   signingKeyPath: string;
   evidenceDir: string;
+  auditLogPath: string;
+  checkoutTimeoutMs: number;
   headed: boolean;
 }
 
@@ -86,6 +92,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MoltConfig {
     bogusGatewayHosts,
     signingKeyPath: env.MOLT_AGENT_SIGNING_KEY_PATH ?? join(moltHome, 'agent-signing-key.pem'),
     evidenceDir: env.MOLT_EVIDENCE_DIR ?? join(moltHome, 'evidence'),
+    auditLogPath: env.MOLT_AUDIT_LOG_PATH ?? join(moltHome, 'audit.jsonl'),
+    checkoutTimeoutMs: Math.min(
+      600_000,
+      Math.max(10_000, Number(env.MOLT_CHECKOUT_TIMEOUT_MS ?? 120_000) || 120_000),
+    ),
     headed: env.MOLT_HEADED === '1',
   };
 }

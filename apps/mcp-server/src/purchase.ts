@@ -157,6 +157,7 @@ export async function purchase(
     shipping: cfg.shipping,
     session_state_path: sessionStatePath,
     headed: cfg.headed,
+    timeout_ms: cfg.checkoutTimeoutMs,
   };
 
   // --- quote: walk to checkout with NO card, extract the real cart ----------
