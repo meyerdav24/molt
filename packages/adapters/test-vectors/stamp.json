@@ -1,0 +1,20 @@
+{
+  "description": "Molt Stamp (RFC 9421, ed25519) test vector. The private key exists only for this vector.",
+  "input": {
+    "method": "POST",
+    "url": "https://store.example.com/checkout",
+    "date": "Sat, 01 Aug 2026 12:00:00 GMT",
+    "tab_context": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "key_id": "molt-test-vector-1",
+    "created": 1785585600
+  },
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA27EtsrsxeBYgAmUxWMAWTAvLoRxq4LzjPY+ZDsLMUZw=\n-----END PUBLIC KEY-----\n",
+  "privateKeyPem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIOyKy0coJmawEfnExNil1C1ImTtFK8fhGCg4PVsyYuVp\n-----END PRIVATE KEY-----\n",
+  "expected_headers": {
+    "date": "Sat, 01 Aug 2026 12:00:00 GMT",
+    "tab-context": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "user-agent": "Molt-Agent/0.1 (+https://github.com/meyerdav24/molt) identity-over-stealth",
+    "signature-input": "sig1=(\"@method\" \"@target-uri\" \"date\" \"tab-context\");created=1785585600;keyid=\"molt-test-vector-1\";alg=\"ed25519\"",
+    "signature": "sig1=:ILsn77LccboeK9kfVp3ruLApVgtmEoJbYG1125FSNi4rPQkIaVgAUo1+oBBVXY8FAfcrSJqaz9lLM6Me8LneAg==:"
+  }
+}

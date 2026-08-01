@@ -8,15 +8,23 @@
  * header, honest user agent. Zero stealth measures — if blocked, fail
  * honestly with `blocked_by_merchant`.
  */
-import type { LadderRung } from '@molt/protocol';
-
-export interface MerchantResolution {
-  url: string;
-  platform: 'shopify' | 'x402' | 'unknown';
-  recommended_rung: LadderRung;
-}
-
-/** Placeholder until OT-051 (platform detector) lands in Phase 2. */
-export function resolveMerchantStub(url: string): MerchantResolution {
-  return { url, platform: 'unknown', recommended_rung: 'L3' };
-}
+export {
+  clearDetectionCache,
+  resolveMerchant,
+  type DetectionResult,
+  type Platform,
+} from './detector.js';
+export {
+  blockedByMerchant,
+  buildSignatureBase,
+  buildTabContext,
+  COVERED_COMPONENTS,
+  generateAgentSigningKey,
+  MOLT_USER_AGENT,
+  signRequest,
+  verifyRequest,
+  type AgentKeyPair,
+  type BlockedByMerchant,
+  type SignedHeaders,
+  type SignRequestInput,
+} from './stamp.js';

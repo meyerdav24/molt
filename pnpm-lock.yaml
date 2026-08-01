@@ -104,6 +104,9 @@ importers:
       '@types/node':
         specifier: ^22.5.0
         version: 22.20.1
+      tsx:
+        specifier: ^4.23.1
+        version: 4.23.1
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
