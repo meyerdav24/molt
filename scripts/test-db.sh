@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-# Run the RLS policy tests against the database in DATABASE_URL
-# (falls back to reading it from .env). Everything runs in one
+# Run all SQL test suites in supabase/tests/ against DATABASE_URL
+# (falls back to reading it from .env). Every suite runs in one
 # transaction and rolls back; safe against any environment.
 set -e
 
@@ -21,4 +21,10 @@ if [ -z "$PSQL" ]; then
   exit 1
 fi
 
-exec "$PSQL" "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/tests/rls_policies.sql
+for f in supabase/tests/*.sql; do
+  echo "==> $f"
+  "$PSQL" "$DATABASE_URL" -v ON_ERROR_STOP=1 -qtA -f "$f" | grep -E 'PASSED|FAILED' || {
+    echo "error: $f produced no PASSED marker" >&2
+    exit 1
+  }
+done
