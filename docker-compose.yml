@@ -16,8 +16,10 @@ services:
       - '54322:5432'
     volumes:
       - db-data:/var/lib/postgresql/data
-      # Migrations applied on first boot, in filename order.
-      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+      # Applied on first boot after the image's own init (roles, extensions):
+      # the image runs /docker-entrypoint-initdb.d/migrations/ in timestamp
+      # order, and our 2026+ prefixes sort last. Add a line per new migration.
+      - ./supabase/migrations/20260801000001_schema_v1.sql:/docker-entrypoint-initdb.d/migrations/20260801000001_schema_v1.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d molt']
       interval: 5s
