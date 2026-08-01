@@ -1,12 +1,12 @@
 # Molt
 
-**An open protocol for delegating bounded, autonomous spending authority to an AI agent — at any online store, including the overwhelming majority that expose no agentic commerce protocol at all.**
+**An open protocol for delegating bounded, autonomous spending authority to an AI agent, at any online store, including the overwhelming majority that expose no agentic commerce protocol at all.**
 
-The name is the security model. The agent never holds your real card. For every purchase it grows a fresh, disposable **shell** — a single-use scoped payment credential sized exactly to that cart — wears it once, and sheds it. The agent molts after every purchase. Worst case, an attacker gets one shell.
+The name is the security model. The agent never holds your real card. For every purchase it grows a fresh, disposable **shell**, a single-use scoped payment credential sized exactly to that cart, wears it once, and sheds it. The agent molts after every purchase. Worst case, an attacker gets one shell.
 
 You delegate the way you would at a bar: show ID once, open a tab with a limit, and anything unusual gets checked with you.
 
-> **Status: pre-release scaffold.** The spec is drafting in [SPEC.md](SPEC.md). Nothing here moves real money: the reference Tab Authority runs exclusively against Stripe test mode and testnet USDC (Base Sepolia). See "What Molt deliberately does not do" in the spec.
+> **Status: pre-release.** The spec is drafting in [SPEC.md](SPEC.md). Nothing here moves real money: the reference Tab Authority runs exclusively against Stripe test mode and testnet USDC (Base Sepolia). Read [what Molt deliberately does not do](SPEC.md#7-what-molt-deliberately-does-not-do) first; the [threat model](SPEC.md#6-threat-model) states exactly what is and is not guaranteed.
 
 ## The three-party model
 
