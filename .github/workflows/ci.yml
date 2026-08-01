@@ -37,7 +37,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           # Comma-separated GitHub usernames exempt from DCO (team members).
-          TEAM: davidmeyer
+          TEAM: meyerdav24
           AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           case ",${TEAM}," in

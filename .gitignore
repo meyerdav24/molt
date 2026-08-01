@@ -2,6 +2,7 @@
 # private molt-cloud repo. Must never enter public history (OT-001).
 PLAN.md
 CLAUDE.md
+TODO-HUMAN.md
 
 # Dependencies
 node_modules/
