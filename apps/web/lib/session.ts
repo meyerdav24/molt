@@ -87,7 +87,7 @@ export async function getRefreshUserId(): Promise<string | null> {
 }
 
 export interface ChallengeData {
-  kind: 'register' | 'login' | 'ceremony';
+  kind: 'register' | 'login' | 'ceremony' | 'stepup';
   challenge: string;
   email?: string;
   /** Ceremony only: the pending mandate document the challenge was derived from. */

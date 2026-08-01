@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { MandateBounds } from '@molt/protocol';
 import { authenticateAgent } from '../../../../../lib/agent-auth';
 import { db } from '../../../../../lib/db';
+import { expireHeldIfDue } from '../../../../../lib/mandates';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const agent = await authenticateAgent(req);
   if (!agent) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  // Held past TTL? Auto-cancel and refund before answering (OT-024 AC).
+  await expireHeldIfDue(params.id);
 
   const [mandate] = await db()<
     {

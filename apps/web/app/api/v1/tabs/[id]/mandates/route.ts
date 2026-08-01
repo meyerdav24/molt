@@ -8,6 +8,8 @@ import {
 } from '@molt/protocol';
 import { authenticateAgent } from '../../../../../../lib/agent-auth';
 import { db } from '../../../../../../lib/db';
+import { sendStepUpEmail } from '../../../../../../lib/email';
+import { createStepUpToken } from '../../../../../../lib/step-up';
 
 export const runtime = 'nodejs';
 
@@ -153,11 +155,31 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             ${sql.json(JSON.parse(JSON.stringify({ triggers: decision.triggers, outcome: decision.outcome })))})`;
 
   if (finalStatus === 'held') {
+    // The Tap (OT-024): email the user; the link opens the step-up page,
+    // approval there requires a passkey assertion.
+    const [owner] = await sql<{ email: string }[]>`
+      select email from users where id = ${tab.user_id}`;
+    const token = await createStepUpToken(minted.id);
+    const url = `${process.env.MOLT_PUBLIC_URL ?? 'http://localhost:3000'}/step-up/${token}`;
+    const { sent } = await sendStepUpEmail({
+      to: owner?.email ?? '',
+      merchant: body.merchant_origin,
+      amount_minor: body.amount_minor,
+      currency: engine.child.bounds.currency,
+      reason: body.reason ?? '',
+      triggers: decision.triggers.map((t) => t.reason),
+      url,
+    });
+    await sql`
+      insert into events (tab_id, mandate_id, user_id, actor, type, payload)
+      values (${tab.id}, ${minted.id}, ${tab.user_id}, 'ta', 'stepup.requested',
+              ${sql.json({ email_sent: sent })})`;
+
     return NextResponse.json(
       {
         status: 'held',
         mandate_id: minted.id,
-        message: 'user approval requested; poll GET /v1/mandates/:id until approved',
+        message: 'user approval requested via email; poll GET /v1/mandates/:id until approved',
         triggers: decision.triggers,
       },
       { status: 202 },

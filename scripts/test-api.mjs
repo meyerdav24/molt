@@ -6,6 +6,7 @@
  * Run from the repo root: node scripts/test-api.mjs
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import * as cryptoModule from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -227,6 +228,60 @@ try {
     list.status === 200 && list.body.receipts.length === 2,
     'receipts list returns filed receipts',
   );
+
+  // --- the Tap (OT-024): deny path + refund, expiry auto-cancel ---
+  const b64u = (s) => Buffer.from(s).toString('base64url');
+  const stepUpToken = (mandateId) => {
+    const header = b64u(JSON.stringify({ alg: 'HS256' }));
+    const payload = b64u(
+      JSON.stringify({
+        typ: 'stepup',
+        mandate_id: mandateId,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 900,
+      }),
+    );
+    const mac = cryptoModule
+      .createHmac('sha256', env('MOLT_SESSION_SECRET'))
+      .update(`${header}.${payload}`)
+      .digest('base64url');
+    return `${header}.${payload}.${mac}`;
+  };
+
+  const before = (await api('GET', `/v1/tabs/${tabId}`, { key: secret })).body.remaining_minor;
+  const deny = await api('POST', '/step-up/deny', {
+    body: { token: stepUpToken(m2.body.mandate_id) },
+  });
+  ok(deny.status === 200 && deny.body.status === 'denied', 'step-up deny cancels the held mandate');
+  const afterDeny = (await api('GET', `/v1/tabs/${tabId}`, { key: secret })).body.remaining_minor;
+  ok(afterDeny === before + 1000, 'deny refunds the reserved budget');
+  const polledDenied = await api('GET', `/v1/mandates/${m2.body.mandate_id}`, { key: secret });
+  ok(polledDenied.body.status === 'denied', 'denied mandate visible to the agent');
+  const denyAgain = await api('POST', '/step-up/deny', {
+    body: { token: stepUpToken(m2.body.mandate_id) },
+  });
+  ok(denyAgain.status === 409, 'deny is not repeatable');
+
+  // expiry auto-cancel: mint another held mandate, force it past TTL, poll
+  const m5 = await api('POST', `/v1/tabs/${tabId}/mandates`, {
+    key: secret,
+    body: {
+      merchant_origin: 'https://expiring.test.invalid',
+      amount_minor: 2000,
+      cart_hash: 'f'.repeat(64),
+      reason: 'expiry test',
+    },
+  });
+  ok(m5.status === 202, 'second held mandate minted');
+  await sql`update mandates set expires_at = now() - interval '1 minute' where id = ${m5.body.mandate_id}`;
+  const polledExpired = await api('GET', `/v1/mandates/${m5.body.mandate_id}`, { key: secret });
+  ok(polledExpired.body.status === 'expired', 'held mandate past TTL auto-cancels on poll');
+  const afterExpiry = (await api('GET', `/v1/tabs/${tabId}`, { key: secret })).body.remaining_minor;
+  ok(afterExpiry === afterDeny, 'expiry refunds the reserved budget');
+  const optionsExpired = await api('POST', '/step-up/options', {
+    body: { token: stepUpToken(m5.body.mandate_id) },
+  });
+  ok(optionsExpired.status === 409, 'step-up options refuse a non-held mandate');
 
   // key revocation
   await sql`update agent_keys set status = 'revoked' where key_hash = ${keyHash}`;
