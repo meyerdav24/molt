@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { db } from '../../lib/db';
 import { getSessionUserId } from '../../lib/session';
 import { LogoutButton } from './logout-button';
+import { KeyButton } from './key-button';
 import { RevokeButton } from './revoke-button';
 
 export const runtime = 'nodejs';
@@ -63,7 +64,13 @@ export default async function DashboardPage() {
                 <td>{eur(t.remaining_minor)}</td>
                 <td>{eur(t.total_minor)}</td>
                 <td>{new Date(t.expires_at).toLocaleDateString()}</td>
-                <td>{t.status === 'active' && <RevokeButton tabId={t.id} />}</td>
+                <td>
+                  {t.status === 'active' && (
+                    <>
+                      <KeyButton tabId={t.id} /> <RevokeButton tabId={t.id} />
+                    </>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "test": "pnpm -r test",
     "test:db": "sh scripts/test-db.sh",
-    "test:rls": "sh scripts/test-db.sh"
+    "test:rls": "sh scripts/test-db.sh",
+    "test:api": "node scripts/test-api.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

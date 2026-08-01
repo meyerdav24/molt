@@ -1,0 +1,144 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Molt Tab Authority API",
+    "version": "0.1.0",
+    "description": "Agent-facing REST API of the Molt Tab Authority (v1). Agents authenticate with a per-tab bearer key (molt_sk_test_...). Opening a tab is always a human act: POST /v1/tabs only returns the passkey ceremony URL. The TA never holds funds and never initiates payments; it authorizes and scopes."
+  },
+  "servers": [{ "url": "/api" }],
+  "components": {
+    "securitySchemes": {
+      "agentKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Per-tab agent key, rotatable from the dashboard. Only its SHA-256 is stored."
+      }
+    },
+    "schemas": {
+      "MandateBounds": {
+        "type": "object",
+        "properties": {
+          "amount_minor": { "type": "integer", "description": "Amount in minor units." },
+          "currency": { "type": "string" },
+          "per_tx_max_minor": { "type": "integer" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "mcc_allowlist": { "type": "array", "items": { "type": "string" } },
+          "velocity_per_hour": { "type": "integer" },
+          "merchant_scope": { "type": "string" }
+        }
+      },
+      "MandateRequest": {
+        "type": "object",
+        "required": ["merchant_origin", "amount_minor", "cart_hash", "reason"],
+        "properties": {
+          "merchant_origin": { "type": "string", "description": "Exactly one http(s) origin." },
+          "amount_minor": { "type": "integer" },
+          "cart_hash": { "type": "string", "description": "Hex SHA-256 of the normalized cart." },
+          "reason": { "type": "string", "description": "Link to the tab's task declaration." },
+          "mcc": { "type": "string" }
+        }
+      },
+      "Receipt": {
+        "type": "object",
+        "required": ["rung", "rail", "merchant", "amount_minor", "currency", "idempotency_key"],
+        "properties": {
+          "rung": { "type": "string", "enum": ["L0", "L1", "L2", "L3"] },
+          "rail": { "type": "string", "enum": ["card_stripe_test", "usdc_x402_testnet"] },
+          "merchant": { "type": "string" },
+          "amount_minor": { "type": "integer" },
+          "currency": { "type": "string" },
+          "idempotency_key": { "type": "string" },
+          "evidence": { "type": "object", "additionalProperties": { "type": "string" } },
+          "agent_signature": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/tabs": {
+      "post": {
+        "summary": "Get the ceremony URL to open a tab (human act; agents cannot self-authorize)",
+        "responses": { "200": { "description": "Ceremony URL for the human owner." } }
+      }
+    },
+    "/v1/tabs/{id}": {
+      "get": {
+        "summary": "Tab status: bounds, remaining budget, expiry",
+        "security": [{ "agentKey": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Tab status." },
+          "401": { "description": "Missing, revoked, or wrong-tab key." }
+        }
+      }
+    },
+    "/v1/tabs/{id}/mandates": {
+      "post": {
+        "summary": "Request a child mandate for one purchase",
+        "description": "Policy engine decides auto-approve/notify/hold/block; narrowing engine validates every bound; budget decrement is atomic. A held mandate is unusable until the user approves via the Tap.",
+        "security": [{ "agentKey": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/MandateRequest" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "Mandate active. Card provisioning follows (OT-031)." },
+          "202": { "description": "Mandate held for user approval; poll GET /v1/mandates/{id}." },
+          "403": { "description": "Blocked by the tab's step-up policy (triggers included)." },
+          "422": { "description": "Narrowing violation (full violation list included)." },
+          "429": { "description": "Velocity limit reached." }
+        }
+      }
+    },
+    "/v1/mandates/{id}": {
+      "get": {
+        "summary": "Mandate status (polling target for held mandates)",
+        "security": [{ "agentKey": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Mandate." },
+          "404": { "description": "Unknown or foreign mandate." }
+        }
+      }
+    },
+    "/v1/mandates/{id}/receipt": {
+      "post": {
+        "summary": "File the receipt for a consumed mandate",
+        "security": [{ "agentKey": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/Receipt" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "Receipt stored; mandate consumed." },
+          "409": { "description": "Mandate not usable or duplicate idempotency key." },
+          "422": { "description": "Amount/merchant/currency outside the mandate." }
+        }
+      }
+    },
+    "/v1/tabs/{id}/receipts": {
+      "get": {
+        "summary": "List receipts for a tab",
+        "security": [{ "agentKey": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Receipts, newest first." } }
+      }
+    }
+  }
+}
