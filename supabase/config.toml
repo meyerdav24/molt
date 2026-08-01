@@ -1,0 +1,16 @@
+# Supabase CLI project config. Run `supabase start` for the full local stack,
+# or use the plain Postgres service in docker-compose.yml for a lighter setup.
+project_id = "molt"
+
+[db]
+port = 54322
+major_version = 15
+
+[api]
+port = 54321
+schemas = ["public"]
+
+[auth]
+# Passkey-only auth is implemented in the app layer (SimpleWebAuthn, OT-020);
+# Supabase auth is used for session storage only.
+site_url = "http://localhost:3000"

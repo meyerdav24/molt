@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://molt.invalid/schemas/receipt.schema.json",
+  "title": "Receipt",
+  "description": "The normalized, dual-signed record of one purchase. Identical shape whether payment executed on a card rail or on-chain. Verifiable offline via `molt verify receipt.json` from this document and public keys alone.",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid", "description": "Receipt ID." },
+    "tab_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The tab under which this purchase executed."
+    },
+    "mandate_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The child mandate this purchase consumed."
+    },
+    "rung": {
+      "type": "string",
+      "enum": ["L0", "L1", "L2", "L3"],
+      "description": "Ladder rung that executed: L0 native protocol, L1 platform adapter, L2 browser automation, L3 human deep link. Provenance is declared, never hidden."
+    },
+    "rail": {
+      "type": "string",
+      "enum": ["card_stripe_test", "usdc_x402_testnet"],
+      "description": "Payment rail. v1 rails are test-money only."
+    },
+    "merchant": { "type": "string", "description": "Merchant origin the purchase executed at." },
+    "amount_minor": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Settled amount in integer minor units."
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO 4217 currency code."
+    },
+    "evidence": {
+      "type": "object",
+      "description": "Hashes of evidence captured at the commit moment. Artifacts are stored separately, addressed by hash.",
+      "properties": {
+        "dom_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the checkout-confirmation DOM snapshot."
+        },
+        "screenshot_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the commit-moment screenshot."
+        },
+        "onchain_tx_hash": {
+          "type": "string",
+          "description": "L0 only: transaction hash on Base Sepolia."
+        }
+      },
+      "additionalProperties": false
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "Derived from (tab, merchant, cart hash). A key may commit at most once; re-invocation with the same cart never double-orders."
+    },
+    "mandate_chain": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "minItems": 2,
+      "description": "Mandate ID chain from root to the consumed child, root first."
+    },
+    "agent_signature": {
+      "type": "string",
+      "description": "Signature by the agent key over the canonical receipt body (all fields except the two signatures)."
+    },
+    "ta_signature": {
+      "type": "string",
+      "description": "Countersignature by the Tab Authority key over the canonical receipt body plus agent_signature."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 creation time."
+    }
+  },
+  "required": [
+    "id",
+    "tab_id",
+    "mandate_id",
+    "rung",
+    "rail",
+    "merchant",
+    "amount_minor",
+    "currency",
+    "evidence",
+    "idempotency_key",
+    "mandate_chain",
+    "agent_signature",
+    "ta_signature",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://molt.invalid/schemas/mandate.schema.json",
+  "title": "Mandate",
+  "description": "A Molt mandate: either the root mandate signed by the user's passkey ceremony when a tab is opened, or a purchase-scoped child mandate derived from it. Normative narrowing rule: a child MUST NOT exceed its parent on any bound (SPEC.md 4.2).",
+  "oneOf": [{ "$ref": "#/$defs/rootMandate" }, { "$ref": "#/$defs/childMandate" }],
+  "$defs": {
+    "amountMinor": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Money amount in integer minor units (e.g. cents). Floats are never used for money."
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO 4217 currency code. A child mandate's currency MUST equal its parent's."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp."
+    },
+    "stepUpAction": {
+      "type": "string",
+      "enum": ["allow", "notify", "require_tap", "block"],
+      "description": "Policy outcome for a step-up trigger: proceed silently, proceed and notify the user, hold until a Tap (passkey assertion) approves, or refuse."
+    },
+    "stepUpPolicy": {
+      "type": "object",
+      "description": "Per-trigger step-up policy set by the user at the ceremony.",
+      "properties": {
+        "unknown_merchant": {
+          "$ref": "#/$defs/stepUpAction",
+          "description": "Trigger: merchant not previously seen in this tab."
+        },
+        "amount_above_baseline": {
+          "$ref": "#/$defs/stepUpAction",
+          "description": "Trigger: amount above a per-tx-max fraction or the rolling baseline."
+        },
+        "mcc_outside_allowlist": {
+          "$ref": "#/$defs/stepUpAction",
+          "description": "Trigger: merchant category code outside the tab's allowlist."
+        },
+        "velocity_exceeded": {
+          "$ref": "#/$defs/stepUpAction",
+          "description": "Trigger: child-mandate velocity limit reached."
+        }
+      },
+      "required": [
+        "unknown_merchant",
+        "amount_above_baseline",
+        "mcc_outside_allowlist",
+        "velocity_exceeded"
+      ],
+      "additionalProperties": false
+    },
+    "bounds": {
+      "type": "object",
+      "description": "Bounds shared by root and child mandates. The canonical JSON of this object is what gets hashed and signed.",
+      "properties": {
+        "amount_minor": {
+          "$ref": "#/$defs/amountMinor",
+          "description": "Root: total budget of the tab. Child: the exact amount of this one purchase, which MUST NOT exceed the parent's remaining budget or per_tx_max_minor."
+        },
+        "currency": { "$ref": "#/$defs/currency" },
+        "per_tx_max_minor": {
+          "$ref": "#/$defs/amountMinor",
+          "description": "Per-transaction ceiling. For a child mandate this equals amount_minor."
+        },
+        "expires_at": {
+          "$ref": "#/$defs/timestamp",
+          "description": "Expiry of this mandate. A child's expiry MUST NOT be later than its parent's; child default TTL is 15 minutes."
+        },
+        "mcc_allowlist": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9]{4}$" },
+          "description": "Allowed ISO 18245 merchant category codes. A child's list MUST be a subset of its parent's."
+        },
+        "merchant_denylist": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Root only, optional: merchant origins the tab explicitly blocks."
+        },
+        "velocity_per_hour": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum child mandates per rolling hour. A child's value MUST NOT exceed its parent's."
+        },
+        "merchant_scope": {
+          "type": "string",
+          "description": "Root: '*' or a pattern. Child: exactly one merchant origin (e.g. https://store.example.com) that matches the parent scope and is not denylisted."
+        }
+      },
+      "required": [
+        "amount_minor",
+        "currency",
+        "per_tx_max_minor",
+        "expires_at",
+        "mcc_allowlist",
+        "velocity_per_hour",
+        "merchant_scope"
+      ],
+      "additionalProperties": false
+    },
+    "rootMandate": {
+      "type": "object",
+      "description": "The root mandate: one WebAuthn passkey ceremony signs these bounds; every purchase derives a child mandate from it.",
+      "properties": {
+        "id": { "type": "string", "format": "uuid", "description": "Mandate ID." },
+        "kind": { "const": "root", "description": "Discriminator: this is a root mandate." },
+        "tab_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The tab this root mandate defines."
+        },
+        "bounds": { "$ref": "#/$defs/bounds" },
+        "task_declaration": {
+          "type": "string",
+          "description": "Free-text task the user delegated (e.g. 'Restock the office'). Signed as part of the ceremony; children reference it via their reason field."
+        },
+        "step_up_policy": { "$ref": "#/$defs/stepUpPolicy" },
+        "webauthn_assertion": {
+          "type": "object",
+          "description": "The WebAuthn assertion from the ceremony. Its challenge MUST be the SHA-256 of the canonical mandate JSON. Authenticates the user to the Tab Authority for mandate signing only; it is not SCA and no issuer may rely on it."
+        },
+        "challenge_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Hex SHA-256 of the canonical bounds JSON the assertion signed. Verifiers recompute and compare to detect tampering."
+        },
+        "created_at": { "$ref": "#/$defs/timestamp", "description": "Creation time." }
+      },
+      "required": [
+        "id",
+        "kind",
+        "tab_id",
+        "bounds",
+        "task_declaration",
+        "step_up_policy",
+        "webauthn_assertion",
+        "challenge_hash",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "childMandate": {
+      "type": "object",
+      "description": "A purchase-scoped child mandate: one merchant, one cart hash, one amount, short TTL. In user-facing copy, a child mandate plus its payment instrument is a 'shell'.",
+      "properties": {
+        "id": { "type": "string", "format": "uuid", "description": "Mandate ID." },
+        "kind": { "const": "child", "description": "Discriminator: this is a child mandate." },
+        "tab_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The tab this mandate belongs to."
+        },
+        "parent_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The parent mandate this child narrows. The narrowing rule binds every bound to this parent."
+        },
+        "bounds": { "$ref": "#/$defs/bounds" },
+        "cart_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Hex SHA-256 of the normalized cart this mandate is scoped to. The preflight/commit protocol refuses commit on mismatch."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Machine-readable link from this purchase to the root task_declaration (why the agent believes this purchase serves the delegated task)."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "held",
+            "approved",
+            "denied",
+            "expired",
+            "consumed",
+            "revoked"
+          ],
+          "description": "Lifecycle: held mandates are unusable until a Tap approves; consumed means the single authorization happened (the shell was worn once and shed)."
+        },
+        "created_at": { "$ref": "#/$defs/timestamp", "description": "Creation time." }
+      },
+      "required": [
+        "id",
+        "kind",
+        "tab_id",
+        "parent_id",
+        "bounds",
+        "cart_hash",
+        "reason",
+        "status",
+        "created_at"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

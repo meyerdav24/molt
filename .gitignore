@@ -1,0 +1,27 @@
+# Local working files for Claude Code sessions. Canonical copies live in the
+# private molt-cloud repo. Must never enter public history (OT-001).
+PLAN.md
+CLAUDE.md
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Supabase local state
+supabase/.temp/
+supabase/.branches/
+
+# OS / editor
+.DS_Store
+*.log

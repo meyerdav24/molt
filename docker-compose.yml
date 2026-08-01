@@ -1,0 +1,59 @@
+# One-command local run (OT-003): web app (Tab Authority) + MCP server +
+# demo x402 seller + Postgres with the schema migrations applied.
+#
+# For the full Supabase stack (RLS with Supabase auth, storage), use the
+# Supabase CLI (`supabase start`) or a cloud project as documented in README;
+# this compose file ships the lighter Postgres path so a stranger reaches a
+# working app in under 10 minutes.
+
+services:
+  db:
+    image: supabase/postgres:15.6.1.143
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: molt
+    ports:
+      - '54322:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Migrations applied on first boot, in filename order.
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d molt']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/molt
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: apps/mcp-server/Dockerfile
+    env_file: .env
+    environment:
+      MOLT_TA_URL: http://web:3000
+    depends_on:
+      - web
+
+  demo-seller:
+    build:
+      context: .
+      dockerfile: apps/demo-seller/Dockerfile
+    env_file: .env
+    ports:
+      - '4021:4021'
+
+volumes:
+  db-data:

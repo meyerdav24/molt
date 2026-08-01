@@ -1,0 +1,23 @@
+{
+  "name": "@molt/protocol",
+  "version": "0.1.0",
+  "description": "Molt protocol: JSON Schemas, mandate types, mandate-tree engine, receipt signing, and the molt verify CLI. Pure TypeScript, zero runtime dependencies.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "schemas"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@molt/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Molt MCP server: open_tab, resolve_merchant, purchase, get_receipts. The agent surface of the Tab Authority.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "molt-mcp-server": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo 'no tests yet (Epic 4)'"
+  },
+  "dependencies": {
+    "@molt/adapters": "workspace:*",
+    "@molt/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^5.5.4"
+  }
+}

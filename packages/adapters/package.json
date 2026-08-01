@@ -1,0 +1,21 @@
+{
+  "name": "@molt/adapters",
+  "version": "0.1.0",
+  "description": "Molt execution ladder: platform detector, Shopify L1 adapter, Stagehand L2 fallback, preflight/commit protocol, the Stamp (RFC 9421 signing), x402 client. Identity over stealth: no fingerprint spoofing, no CAPTCHA solving, ever.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo 'no tests yet (Epic 5)'"
+  },
+  "dependencies": {
+    "@molt/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^5.5.4"
+  }
+}
