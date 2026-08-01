@@ -1,6 +1,7 @@
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 import { NextResponse } from 'next/server';
+import { provisionCardForMandate } from '../../../../lib/cards';
 import { db } from '../../../../lib/db';
 import { bytesToBase64Url, hexToBytes } from '../../../../lib/mandate-binding';
 import { expireHeldIfDue } from '../../../../lib/mandates';
@@ -122,6 +123,13 @@ export async function POST(req: Request) {
       values (${m.tab_id}, ${m.id}, ${m.user_id}, 'user', 'mandate.approved',
               ${tx.json({ amendment: amendment as never, challenge_hash: challengeHex })})`;
   });
+
+  // Grow the shell now; the agent collects the details on its next poll.
+  try {
+    await provisionCardForMandate(m.id);
+  } catch {
+    // agent poll retries provisioning
+  }
 
   return NextResponse.json({ ok: true, status: 'approved' });
 }

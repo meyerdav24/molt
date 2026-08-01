@@ -23,6 +23,8 @@ services:
       - ./supabase/migrations/20260801000002_mint_child_mandate.sql:/docker-entrypoint-initdb.d/migrations/20260801000002_mint_child_mandate.sql:ro
       - ./supabase/migrations/20260801000003_agent_keys.sql:/docker-entrypoint-initdb.d/migrations/20260801000003_agent_keys.sql:ro
       - ./supabase/migrations/20260801000004_events_anonymization.sql:/docker-entrypoint-initdb.d/migrations/20260801000004_events_anonymization.sql:ro
+      - ./supabase/migrations/20260801000005_card_delivery.sql:/docker-entrypoint-initdb.d/migrations/20260801000005_card_delivery.sql:ro
+      - ./supabase/migrations/20260801000006_cards_cascade.sql:/docker-entrypoint-initdb.d/migrations/20260801000006_cards_cascade.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d molt']
       interval: 5s

@@ -1,6 +1,7 @@
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 import { NextResponse } from 'next/server';
+import { ensureCardholder } from '../../../../../lib/cardholder';
 import { db } from '../../../../../lib/db';
 import {
   mandateChallengeBase64Url,
@@ -109,6 +110,14 @@ export async function POST(req: Request) {
               })})`;
     return [t];
   });
+
+  // OT-030: provision the Stripe test cardholder on first tab creation.
+  // Best effort - card provisioning retries it if Stripe was unreachable.
+  try {
+    await ensureCardholder(userId);
+  } catch {
+    // non-fatal by design
+  }
 
   return NextResponse.json({ ok: true, tab_id: tab?.id });
 }

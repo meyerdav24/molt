@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { MandateBounds } from '@molt/protocol';
 import { authenticateAgent } from '../../../../../lib/agent-auth';
+import { deliverCardDetailsOnce, provisionCardForMandate } from '../../../../../lib/cards';
 import { db } from '../../../../../lib/db';
 import { expireHeldIfDue } from '../../../../../lib/mandates';
 
@@ -31,6 +32,18 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
+  // Approved (or active with a failed earlier delivery): hand over the card
+  // details exactly once (OT-031).
+  let card = null;
+  if (mandate.status === 'approved' || mandate.status === 'active') {
+    try {
+      await provisionCardForMandate(mandate.id);
+      card = await deliverCardDetailsOnce(mandate.id);
+    } catch {
+      // provisioning problems surface via events; polling again retries
+    }
+  }
+
   return NextResponse.json({
     id: mandate.id,
     status: mandate.status,
@@ -38,5 +51,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     cart_hash: mandate.cart_hash,
     reason: mandate.reason,
     expires_at: mandate.expires_at,
+    // One-time delivery: non-null exactly once, on the first poll after approval.
+    card,
   });
 }

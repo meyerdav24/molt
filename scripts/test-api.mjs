@@ -127,6 +127,75 @@ try {
   });
   ok(m1.status === 201 && m1.body.status === 'active', 'known merchant mints active mandate');
 
+  // OT-031: the shell - a real Stripe test card, delivered exactly once
+  const card = m1.body.card;
+  ok(
+    !!card && /^\d{16}$/.test(card.number) && /^\d{3,4}$/.test(card.cvc),
+    'active mandate returns one-time card details (real Stripe test card)',
+  );
+  const rePoll = await api('GET', `/v1/mandates/${m1.body.mandate_id}`, { key: secret });
+  ok(rePoll.body.card === null, 'card details are not retrievable a second time');
+
+  // OT-032: real-time authorization webhook (signed events)
+  const signedWebhook = (payload) => {
+    const body = JSON.stringify(payload);
+    const t = Math.floor(Date.now() / 1000);
+    const sig = cryptoModule
+      .createHmac('sha256', env('STRIPE_WEBHOOK_SECRET'))
+      .update(`${t}.${body}`)
+      .digest('hex');
+    return fetch(`${BASE}/api/webhooks/stripe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'stripe-signature': `t=${t},v1=${sig}` },
+      body,
+    });
+  };
+  const authEvent = (id, cardId, amount) => ({
+    id,
+    object: 'event',
+    type: 'issuing_authorization.request',
+    api_version: '2025-01-01',
+    data: {
+      object: {
+        id: `iauth_${id}`,
+        object: 'issuing.authorization',
+        card: { id: cardId },
+        amount: 0,
+        approved: false,
+        pending_request: { amount },
+      },
+    },
+  });
+
+  const whOk = await signedWebhook(authEvent(`evt_ok_${tabId.slice(0, 8)}`, card.card_id, 3400));
+  ok(
+    whOk.status === 200 && (await whOk.json()).approved === true,
+    'webhook approves authorization matching active mandate',
+  );
+
+  const whOver = await signedWebhook(
+    authEvent(`evt_over_${tabId.slice(0, 8)}`, card.card_id, 3401),
+  );
+  ok(
+    (await whOver.json()).approved === false,
+    'webhook declines authorization above mandate amount',
+  );
+
+  const whUnknown = await signedWebhook(
+    authEvent(`evt_unk_${tabId.slice(0, 8)}`, 'ic_does_not_exist', 100),
+  );
+  ok(
+    (await whUnknown.json()).approved === false,
+    'webhook declines authorization without matching mandate',
+  );
+
+  const badSig = await fetch(`${BASE}/api/webhooks/stripe`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'stripe-signature': 't=1,v1=deadbeef' },
+    body: JSON.stringify(authEvent('evt_forged', card.card_id, 1)),
+  });
+  ok(badSig.status === 400, 'webhook rejects invalid signature');
+
   // budget decremented
   const tab2 = await api('GET', `/v1/tabs/${tabId}`, { key: secret });
   ok(tab2.body.remaining_minor === 40000 - 3400, 'budget decremented by mint');
@@ -221,6 +290,12 @@ try {
     },
   });
   ok(r2.status === 409, 'consumed mandate / duplicate key -> 409');
+
+  // consumed mandate: webhook must now decline the same card
+  const whConsumed = await signedWebhook(
+    authEvent(`evt_used_${tabId.slice(0, 8)}`, card.card_id, 100),
+  );
+  ok((await whConsumed.json()).approved === false, 'webhook declines after mandate is consumed');
 
   // receipts list
   const list = await api('GET', `/v1/tabs/${tabId}/receipts`, { key: secret });

@@ -7,6 +7,7 @@ import {
   type StepUpPolicy,
 } from '@molt/protocol';
 import { authenticateAgent } from '../../../../../../lib/agent-auth';
+import { deliverCardDetailsOnce, provisionCardForMandate } from '../../../../../../lib/cards';
 import { db } from '../../../../../../lib/db';
 import { sendStepUpEmail } from '../../../../../../lib/email';
 import { createStepUpToken } from '../../../../../../lib/step-up';
@@ -186,12 +187,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     );
   }
 
+  // Grow the shell (OT-031): scoped single-use card, details delivered once.
+  let card = null;
+  try {
+    await provisionCardForMandate(minted.id);
+    card = await deliverCardDetailsOnce(minted.id);
+  } catch (e) {
+    // Mandate stays active; agent can retry via GET /v1/mandates/:id.
+    await sql`
+      insert into events (tab_id, mandate_id, user_id, actor, type, payload)
+      values (${tab.id}, ${minted.id}, ${tab.user_id}, 'ta', 'card.provision_failed',
+              ${sql.json({ detail: e instanceof Error ? e.message : 'unknown' })})`;
+  }
+
   return NextResponse.json(
     {
       status: 'active',
       mandate_id: minted.id,
       bounds: engine.child.bounds,
-      // Card provisioning (the shell) lands with OT-031.
+      // One-time delivery. Not stored, not logged, not retrievable again.
+      card,
       notified: decision.outcome === 'notify' ? decision.triggers : undefined,
     },
     { status: 201 },
