@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "test:rls": "sh scripts/test-rls.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
