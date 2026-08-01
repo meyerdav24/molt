@@ -30,6 +30,9 @@ export async function POST(req: Request) {
     userName: email,
     attestationType: 'none',
     authenticatorSelection: {
+      // Platform authenticator (Touch ID / Windows Hello / Android biometric)
+      // per OT-020; without this hint browsers lead with the cross-device QR.
+      authenticatorAttachment: 'platform',
       residentKey: 'required',
       userVerification: 'preferred',
     },
