@@ -18,9 +18,7 @@ import { join } from 'node:path';
 const webRequire = createRequire(new URL('../apps/web/package.json', import.meta.url));
 const postgres = webRequire('postgres');
 const mcpRequire = createRequire(new URL('../apps/mcp-server/package.json', import.meta.url));
-const { Client } = await import(
-  mcpRequire.resolve('@modelcontextprotocol/sdk/client/index.js')
-);
+const { Client } = await import(mcpRequire.resolve('@modelcontextprotocol/sdk/client/index.js'));
 const { StdioClientTransport } = await import(
   mcpRequire.resolve('@modelcontextprotocol/sdk/client/stdio.js')
 );
@@ -137,7 +135,8 @@ try {
   const tools = await client.listTools();
   const names = tools.tools.map((t) => t.name).sort();
   ok(
-    JSON.stringify(names) === JSON.stringify(['get_receipts', 'open_tab', 'purchase', 'resolve_merchant']),
+    JSON.stringify(names) ===
+      JSON.stringify(['get_receipts', 'open_tab', 'purchase', 'resolve_merchant']),
     `four tools exposed (${names.join(', ')})`,
   );
 
@@ -166,7 +165,8 @@ try {
     reason: 'buying office supplies for the mcp e2e test task',
   };
   const bought = parse(await callTool('purchase', args, SLOW));
-  if (bought.status !== 'purchased') console.error('purchase outcome:', JSON.stringify(bought, null, 2));
+  if (bought.status !== 'purchased')
+    console.error('purchase outcome:', JSON.stringify(bought, null, 2));
   ok(bought.status === 'purchased', `purchase completed (status: ${bought.status})`);
   if (bought.status === 'purchased') {
     ok(/#|order|confirm/i.test(bought.order_confirmation), 'order confirmation captured');
@@ -175,7 +175,10 @@ try {
       ta_public_key: bought.receipt.ta_public_key,
     });
     ok(verdict.valid, 'receipt verifies offline (agent + TA signatures)');
-    ok(bought.receipt.rung === 'L1' && bought.receipt.amount_minor === TOTAL, 'receipt records rung + amount');
+    ok(
+      bought.receipt.rung === 'L1' && bought.receipt.amount_minor === TOTAL,
+      'receipt records rung + amount',
+    );
     ok(
       Array.isArray(bought.receipt.mandate_chain) && bought.receipt.mandate_chain[0] === rootId,
       'mandate chain starts at the root',

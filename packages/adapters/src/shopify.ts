@@ -121,8 +121,7 @@ export interface ShopifyQuoteRequest {
 }
 
 export type ShopifyQuoteResult =
-  | { ok: true; rung: 'L1'; cart: NormalizedCart }
-  | ShopifyCheckoutFailure;
+  { ok: true; rung: 'L1'; cart: NormalizedCart } | ShopifyCheckoutFailure;
 
 function fail(
   stage: CheckoutStage,
