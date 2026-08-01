@@ -87,9 +87,11 @@ export async function getRefreshUserId(): Promise<string | null> {
 }
 
 export interface ChallengeData {
-  kind: 'register' | 'login';
+  kind: 'register' | 'login' | 'ceremony';
   challenge: string;
   email?: string;
+  /** Ceremony only: the pending mandate document the challenge was derived from. */
+  payload?: unknown;
 }
 
 /** Store a WebAuthn challenge for the follow-up verify call. */
@@ -99,7 +101,7 @@ export async function setChallenge(data: ChallengeData): Promise<void> {
     httpOnly: true,
     sameSite: 'strict',
     secure: secureCookies(),
-    path: '/api/auth',
+    path: '/api',
     maxAge: CHALLENGE_TTL_S,
   });
 }
@@ -108,12 +110,13 @@ export async function setChallenge(data: ChallengeData): Promise<void> {
 export async function consumeChallenge(kind: ChallengeData['kind']): Promise<ChallengeData | null> {
   const jar = await cookies();
   const token = jar.get(CHALLENGE_COOKIE)?.value;
-  jar.set(CHALLENGE_COOKIE, '', { path: '/api/auth', maxAge: 0 });
+  jar.set(CHALLENGE_COOKIE, '', { path: '/api', maxAge: 0 });
   if (!token) return null;
   const payload = await verify(token);
   if (!payload || payload.typ !== 'challenge' || payload.kind !== kind) return null;
   if (typeof payload.challenge !== 'string') return null;
   const data: ChallengeData = { kind, challenge: payload.challenge };
   if (typeof payload.email === 'string') data.email = payload.email;
+  if (payload.payload !== undefined) data.payload = payload.payload;
   return data;
 }
