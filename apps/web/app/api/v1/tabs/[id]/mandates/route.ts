@@ -180,6 +180,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       {
         status: 'held',
         mandate_id: minted.id,
+        parent_id: root.id,
         message: 'user approval requested via email; poll GET /v1/mandates/:id until approved',
         triggers: decision.triggers,
       },
@@ -204,6 +205,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     {
       status: 'active',
       mandate_id: minted.id,
+      parent_id: root.id,
       bounds: engine.child.bounds,
       // One-time delivery. Not stored, not logged, not retrievable again.
       card,

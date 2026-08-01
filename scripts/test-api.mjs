@@ -54,6 +54,35 @@ const keyHash = createHash('sha256').update(secret).digest('hex');
 const CART = 'a'.repeat(64);
 const KNOWN = 'https://known-store.test.invalid';
 
+// Receipt filing is dual-signed (OT-060): the script plays the agent side
+// with its own ephemeral ed25519 key.
+const { signReceiptAsAgent, verifyReceipt } = await import('../packages/protocol/dist/index.js');
+const agentKeyPair = cryptoModule.generateKeyPairSync('ed25519');
+const AGENT_PRIV = agentKeyPair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+const AGENT_PUB = agentKeyPair.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+
+function signedReceipt({ mandate_id, merchant, amount_minor, idempotency_key, evidence = {} }) {
+  const receipt = {
+    id: randomUUID(),
+    tab_id: tabId,
+    mandate_id,
+    rung: 'L1',
+    rail: 'card_stripe_test',
+    merchant,
+    amount_minor,
+    currency: 'EUR',
+    evidence,
+    idempotency_key,
+    mandate_chain: [rootId, mandate_id],
+    created_at: new Date().toISOString(),
+  };
+  return {
+    receipt,
+    agent_signature: signReceiptAsAgent(receipt, AGENT_PRIV),
+    agent_public_key: AGENT_PUB,
+  };
+}
+
 async function seed() {
   const bounds = {
     amount_minor: 40000,
@@ -219,14 +248,12 @@ try {
   // held mandate is unusable: receipt filing must fail
   const heldReceipt = await api('POST', `/v1/mandates/${m2.body.mandate_id}/receipt`, {
     key: secret,
-    body: {
-      rung: 'L1',
-      rail: 'card_stripe_test',
+    body: signedReceipt({
+      mandate_id: m2.body.mandate_id,
       merchant: 'https://new-store.test.invalid',
       amount_minor: 1000,
-      currency: 'EUR',
       idempotency_key: `held-${tabId}`,
-    },
+    }),
   });
   ok(heldReceipt.status === 409, 'held mandate cannot file a receipt');
 
@@ -265,31 +292,58 @@ try {
   // receipt for the active mandate
   const r1 = await api('POST', `/v1/mandates/${m1.body.mandate_id}/receipt`, {
     key: secret,
-    body: {
-      rung: 'L1',
-      rail: 'card_stripe_test',
+    body: signedReceipt({
+      mandate_id: m1.body.mandate_id,
       merchant: KNOWN,
       amount_minor: 3400,
-      currency: 'EUR',
       idempotency_key: `it-${tabId}`,
       evidence: { dom_sha256: 'e'.repeat(64) },
-    },
+    }),
   });
   ok(r1.status === 201, 'receipt filed for active mandate');
+  // the response is a complete SignedReceipt, verifiable offline (OT-060)
+  const verdict = r1.body.receipt
+    ? verifyReceipt(r1.body.receipt, {
+        agent_public_key: r1.body.receipt.agent_public_key,
+        ta_public_key: r1.body.receipt.ta_public_key,
+      })
+    : { valid: false };
+  ok(verdict.valid, 'filed receipt verifies offline (agent + TA signatures)');
 
   // duplicate idempotency key
   const r2 = await api('POST', `/v1/mandates/${m1.body.mandate_id}/receipt`, {
     key: secret,
-    body: {
-      rung: 'L1',
-      rail: 'card_stripe_test',
+    body: signedReceipt({
+      mandate_id: m1.body.mandate_id,
       merchant: KNOWN,
       amount_minor: 3400,
-      currency: 'EUR',
       idempotency_key: `it-${tabId}`,
-    },
+    }),
   });
   ok(r2.status === 409, 'consumed mandate / duplicate key -> 409');
+
+  // agent sheds an unworn shell: cancel refunds the reserved amount
+  const budgetBefore = await api('GET', `/v1/tabs/${tabId}`, { key: secret });
+  const mCancel = await api('POST', `/v1/tabs/${tabId}/mandates`, {
+    key: secret,
+    body: {
+      merchant_origin: KNOWN,
+      amount_minor: 500,
+      cart_hash: 'f'.repeat(64),
+      reason: 'cancel test',
+      mcc: '5732',
+    },
+  });
+  ok(mCancel.status === 201, 'mandate for cancel test minted');
+  const del = await api('DELETE', `/v1/mandates/${mCancel.body.mandate_id}`, { key: secret });
+  ok(del.status === 200 && del.body.status === 'revoked', 'agent cancels own unused mandate');
+  const budgetAfter = await api('GET', `/v1/tabs/${tabId}`, { key: secret });
+  ok(
+    budgetAfter.body.remaining_minor === budgetBefore.body.remaining_minor,
+    'cancel refunds the reserved amount',
+  );
+  const delAgain = await api('DELETE', `/v1/mandates/${mCancel.body.mandate_id}`, { key: secret });
+  ok(delAgain.status === 409, 'canceled mandate cannot be canceled twice');
 
   // consumed mandate: webhook must now decline the same card
   const whConsumed = await signedWebhook(

@@ -40,6 +40,32 @@ docker compose up
 
 Full self-hosting docs are being written alongside the implementation.
 
+## Connect an agent (MCP)
+
+The MCP server exposes four tools: `open_tab`, `resolve_merchant`, `purchase`, `get_receipts`. Opening a tab always happens in the browser with your passkey; the agent only ever receives the ceremony URL.
+
+Claude Desktop config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "molt": {
+      "command": "node",
+      "args": ["/path/to/molt/apps/mcp-server/dist/index.js"],
+      "env": {
+        "MOLT_API_URL": "http://localhost:3000",
+        "MOLT_AGENT_KEY": "molt_sk_test_...",
+        "MOLT_SHIPPING_PROFILE": "{\"email\":\"you@example.com\",\"first_name\":\"Ada\",\"last_name\":\"Lovelace\",\"address1\":\"Teststr. 1\",\"city\":\"Munich\",\"zip\":\"80331\",\"country_code\":\"DE\"}"
+      }
+    }
+  }
+}
+```
+
+Setup order: run the web app, ask the agent to `open_tab`, complete the passkey ceremony it links you to, create an agent key in the dashboard for that tab, put the key into `MOLT_AGENT_KEY`, restart the agent host. The key is scoped to that one tab and its limits; a purchase can never exceed them.
+
+Optional variables: `MOLT_STOREFRONT_PASSWORDS` (`host|password,...` for password-protected dev stores), `MOLT_BOGUS_GATEWAY_HOSTS` (dev stores running Shopify's Bogus Gateway, where the simulated acquirer gets its test card while the scoped card stays real), `MOLT_EVIDENCE_DIR`, `MOLT_AGENT_SIGNING_KEY_PATH`. For a remote transport run with `--sse [port]`.
+
 ## Disclaimers
 
 - The hosted beta (when it exists) is test-mode only. No real money moves.

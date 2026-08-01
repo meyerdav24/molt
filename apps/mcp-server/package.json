@@ -14,8 +14,10 @@
     "test": "echo 'no tests yet (Epic 4)'"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@molt/adapters": "workspace:*",
-    "@molt/protocol": "workspace:*"
+    "@molt/protocol": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",

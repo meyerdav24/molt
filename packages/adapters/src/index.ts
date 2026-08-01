@@ -40,8 +40,11 @@ export {
 export {
   parseDisplayedMoney,
   shopifyCheckout,
+  shopifyQuote,
   type CardPayload,
   type ShippingProfile,
   type ShopifyCheckoutRequest,
   type ShopifyCheckoutResult,
+  type ShopifyQuoteRequest,
+  type ShopifyQuoteResult,
 } from './shopify.js';

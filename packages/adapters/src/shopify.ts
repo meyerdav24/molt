@@ -18,7 +18,8 @@
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { chromium, type Page } from 'playwright';
+import { chromium, type BrowserContext, type Page } from 'playwright';
+import type { NormalizedCart } from './preflight.js';
 import { MOLT_USER_AGENT } from './stamp.js';
 
 export interface ShippingProfile {
@@ -108,6 +109,21 @@ export interface ShopifyCheckoutFailure {
 
 export type ShopifyCheckoutResult = ShopifyCheckoutSuccess | ShopifyCheckoutFailure;
 
+/** Quote pass: same walk as checkout, but stops before any card entry. */
+export interface ShopifyQuoteRequest {
+  store_url: string;
+  storefront_password?: string;
+  items: { variant_id: number; quantity: number }[];
+  shipping: ShippingProfile;
+  session_state_path?: string;
+  headed?: boolean;
+  timeout_ms?: number;
+}
+
+export type ShopifyQuoteResult =
+  | { ok: true; rung: 'L1'; cart: NormalizedCart }
+  | ShopifyCheckoutFailure;
+
 function fail(
   stage: CheckoutStage,
   reason: ShopifyCheckoutFailure['reason'],
@@ -162,15 +178,17 @@ async function detectChallenge(page: Page): Promise<boolean> {
   return html.includes('hcaptcha') || html.includes('cf-challenge') || html.includes('recaptcha');
 }
 
-export async function shopifyCheckout(req: ShopifyCheckoutRequest): Promise<ShopifyCheckoutResult> {
-  const origin = new URL(req.store_url).origin;
-  const timeout = req.timeout_ms ?? 90_000;
-  const browser = await chromium.launch({ headless: !req.headed });
+async function launch(opts: { session_state_path?: string; headed?: boolean }): Promise<{
+  browser: Awaited<ReturnType<typeof chromium.launch>>;
+  context: BrowserContext;
+  page: Page;
+}> {
+  const browser = await chromium.launch({ headless: !opts.headed });
   let storageState: string | undefined;
-  if (req.session_state_path) {
+  if (opts.session_state_path) {
     try {
-      await (await import('node:fs/promises')).access(req.session_state_path);
-      storageState = req.session_state_path;
+      await (await import('node:fs/promises')).access(opts.session_state_path);
+      storageState = opts.session_state_path;
     } catch {
       // first run: no session yet
     }
@@ -182,8 +200,25 @@ export async function shopifyCheckout(req: ShopifyCheckoutRequest): Promise<Shop
   });
   const page = await context.newPage();
   page.setDefaultTimeout(20_000);
+  return { browser, context, page };
+}
 
-  try {
+/**
+ * The shared walk up to (never including) card entry: password gate, cart
+ * build via the documented AJAX API, checkout load, contact + shipping,
+ * extraction of line items and the displayed total. Quote and checkout run
+ * the exact same path, so the cart a mandate is scoped to is the cart the
+ * commit pass sees.
+ */
+async function prepareCheckout(
+  page: Page,
+  context: BrowserContext,
+  req: ShopifyQuoteRequest,
+): Promise<{ cart: NormalizedCart } | ShopifyCheckoutFailure> {
+  const origin = new URL(req.store_url).origin;
+  const timeout = req.timeout_ms ?? 90_000;
+
+  {
     // --- password gate -----------------------------------------------------
     await page.goto(origin, { waitUntil: 'domcontentloaded', timeout });
     const gate = await passPasswordGate(page, req.storefront_password);
@@ -246,6 +281,27 @@ export async function shopifyCheckout(req: ShopifyCheckoutRequest): Promise<Shop
       }
     }
 
+    // read the cart back from the documented endpoint: line items, unit
+    // prices and subtotal in minor units - no DOM guessing
+    const cartJson = (await page.evaluate(async () => {
+      const res = await fetch('/cart.js');
+      return res.ok ? await res.json() : null;
+    })) as {
+      currency: string;
+      items_subtotal_price: number;
+      items: {
+        variant_id: number;
+        quantity: number;
+        title: string;
+        product_title?: string;
+        final_price?: number;
+        price: number;
+      }[];
+    } | null;
+    if (!cartJson || !Array.isArray(cartJson.items) || cartJson.items.length === 0) {
+      return fail('cart', 'cart_failed', 'could not read /cart.js after building the cart');
+    }
+
     // --- checkout ----------------------------------------------------------
     await page.goto(`${origin}/checkout`, { waitUntil: 'domcontentloaded', timeout });
     if (await detectChallenge(page)) {
@@ -304,7 +360,7 @@ export async function shopifyCheckout(req: ShopifyCheckoutRequest): Promise<Shop
       );
     }
 
-    // --- preflight: total must match EXACTLY before any card entry --------
+    // --- displayed total ----------------------------------------------------
     await page.waitForTimeout(1500); // totals settle after address entry
     const totalText = await page
       .locator('css=[role="row"]:has-text("Total"), div:has-text("Total") >> nth=-1')
@@ -319,6 +375,55 @@ export async function shopifyCheckout(req: ShopifyCheckoutRequest): Promise<Shop
         `could not read displayed total (got: ${totalText.slice(0, 120)})`,
       );
     }
+
+    const subtotal = cartJson.items_subtotal_price;
+    return {
+      cart: {
+        merchant_origin: origin,
+        currency: cartJson.currency.toUpperCase(),
+        lines: cartJson.items.map((i) => ({
+          variant_id: i.variant_id,
+          title: i.product_title ?? i.title,
+          quantity: i.quantity,
+          price_minor: i.final_price ?? i.price,
+        })),
+        subtotal_minor: subtotal,
+        // Dev-store prices are tax-inclusive; whatever checkout adds on top
+        // of the items subtotal (shipping, any non-included tax) lands here
+        // so subtotal + shipping = total stays a checkable invariant.
+        shipping_minor: displayed - subtotal,
+        total_minor: displayed,
+      },
+    };
+  }
+}
+
+/**
+ * Quote pass (the OT-054 wiring): walk to the checkout page WITHOUT a card
+ * and return the normalized cart. The child mandate gets scoped to this
+ * cart's hash; the commit pass must reproduce it exactly.
+ */
+export async function shopifyQuote(req: ShopifyQuoteRequest): Promise<ShopifyQuoteResult> {
+  const { browser, context, page } = await launch(req);
+  try {
+    const prepared = await prepareCheckout(page, context, req);
+    if ('ok' in prepared) return prepared;
+    return { ok: true, rung: 'L1', cart: prepared.cart };
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function shopifyCheckout(req: ShopifyCheckoutRequest): Promise<ShopifyCheckoutResult> {
+  const timeout = req.timeout_ms ?? 90_000;
+  const { browser, context, page } = await launch(req);
+
+  try {
+    const prepared = await prepareCheckout(page, context, req);
+    if ('ok' in prepared) return prepared;
+
+    // --- preflight: total must match EXACTLY before any card entry --------
+    const displayed = prepared.cart.total_minor;
     if (displayed !== req.expected_total_minor) {
       return fail(
         'preflight_total',
