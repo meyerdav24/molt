@@ -244,6 +244,8 @@ export async function purchase(
       amount_minor: cart.total_minor,
       cart_hash: hash,
       reason: input.reason,
+      // shown to the human on the step-up page if this gets held
+      items_summary: cart.lines.map((l) => `${l.quantity}× ${l.title}`),
     });
     if (mint.status === 202 && mint.body.mandate_id) {
       return {

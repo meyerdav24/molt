@@ -54,7 +54,9 @@ export default async function StepUpPage({ params }: { params: { token: string }
     return wrap(<p>{text[m.status] ?? `Request state: ${m.status}.`}</p>);
   }
 
-  const [trigger] = await sql<{ payload: { triggers?: { reason: string }[] } }[]>`
+  const [trigger] = await sql<
+    { payload: { triggers?: { reason: string }[]; items_summary?: string[] } }[]
+  >`
     select payload from events
     where mandate_id = ${m.id} and type = 'mandate.held'
     order by id desc limit 1`;
@@ -64,6 +66,7 @@ export default async function StepUpPage({ params }: { params: { token: string }
       token={params.token}
       merchant={m.merchant_scope}
       amount={`${(Number(m.amount_minor) / 100).toFixed(2)} ${m.currency}`}
+      items={trigger?.payload.items_summary ?? []}
       reason={m.reason ?? ''}
       triggers={(trigger?.payload.triggers ?? []).map((t) => t.reason)}
       expiresAt={m.expires_at}

@@ -20,6 +20,8 @@ interface MandateRequestBody {
   cart_hash: string;
   reason: string;
   mcc?: string;
+  /** Human-readable cart lines ("2× USB-C Hub"), shown on the step-up page. */
+  items_summary?: string[];
 }
 
 /**
@@ -41,6 +43,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!body?.merchant_origin || typeof body.amount_minor !== 'number') {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
+  // Display-only, agent-supplied: bound it before it touches the event log.
+  body.items_summary = Array.isArray(body.items_summary)
+    ? body.items_summary.slice(0, 20).map((s) => String(s).slice(0, 120))
+    : [];
 
   const sql = db();
   const [tab] = await sql<
@@ -153,7 +159,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     insert into events (tab_id, mandate_id, user_id, actor, type, payload)
     values (${tab.id}, ${minted.id}, ${tab.user_id}, 'ta',
             ${finalStatus === 'held' ? 'mandate.held' : 'mandate.activated'},
-            ${sql.json(JSON.parse(JSON.stringify({ triggers: decision.triggers, outcome: decision.outcome })))})`;
+            ${sql.json(JSON.parse(JSON.stringify({ triggers: decision.triggers, outcome: decision.outcome, items_summary: body.items_summary })))})`;
 
   if (finalStatus === 'held') {
     // The Tap (OT-024): email the user; the link opens the step-up page,

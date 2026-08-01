@@ -50,7 +50,8 @@ export default async function DashboardPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
-              <th style={{ padding: '0.4rem 0' }}>Status</th>
+              <th style={{ padding: '0.4rem 0' }}>Tab</th>
+              <th>Status</th>
               <th>Remaining</th>
               <th>Total</th>
               <th>Expires</th>
@@ -60,7 +61,10 @@ export default async function DashboardPage() {
           <tbody>
             {tabs.map((t) => (
               <tr key={t.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '0.4rem 0' }}>{t.status}</td>
+                <td style={{ padding: '0.4rem 0' }}>
+                  <Link href={`/dashboard/tabs/${t.id}`}>{t.id.slice(0, 8)}</Link>
+                </td>
+                <td>{t.status}</td>
                 <td>{eur(t.remaining_minor)}</td>
                 <td>{eur(t.total_minor)}</td>
                 <td>{new Date(t.expires_at).toLocaleDateString()}</td>

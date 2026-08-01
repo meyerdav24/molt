@@ -7,6 +7,7 @@ export function StepUpClient(props: {
   token: string;
   merchant: string;
   amount: string;
+  items: string[];
   reason: string;
   triggers: string[];
   expiresAt: string;
@@ -63,6 +64,13 @@ export function StepUpClient(props: {
       <p style={{ fontSize: '1.3rem' }}>
         <strong>{props.amount}</strong> at <strong>{props.merchant}</strong>
       </p>
+      {props.items.length > 0 && (
+        <ul style={{ marginTop: 0 }}>
+          {props.items.map((it) => (
+            <li key={it}>{it}</li>
+          ))}
+        </ul>
+      )}
       {props.reason && <p>Reason: {props.reason}</p>}
       {props.triggers.length > 0 && (
         <ul>
