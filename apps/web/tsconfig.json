@@ -7,6 +7,9 @@
     "moduleResolution": "bundler",
     "jsx": "preserve",
     "noEmit": true,
+    // node --test runs .test.ts files via native type stripping, which
+    // requires explicit .ts extensions on relative imports
+    "allowImportingTsExtensions": true,
     "allowJs": true,
     "incremental": true,
     "declaration": false,

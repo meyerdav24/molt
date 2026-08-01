@@ -1,3 +1,5 @@
+import { Disclaimers } from '../components/disclaimers';
+
 export default function Home() {
   return (
     <main
@@ -8,10 +10,8 @@ export default function Home() {
         Delegate bounded spending to an AI agent. For every purchase the agent grows a disposable
         shell, wears it once, and sheds it. It never touches your real card.
       </p>
-      <p>
-        Pre-release scaffold. Test mode only: no real money moves here. The full landing page is
-        built in a later phase.
-      </p>
+      <p>Pre-release scaffold. The full landing page is built in a later phase.</p>
+      <Disclaimers />
     </main>
   );
 }

@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo 'no tests yet (Epic 2)'"
+    "test": "node --test lib/test-mode-gate.test.ts"
   },
   "dependencies": {
     "@molt/protocol": "workspace:*",
