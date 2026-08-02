@@ -1,0 +1,10 @@
+# Never upload local secrets or private planning files (CLI deploys upload
+# the working directory; the git integration ignores this list anyway).
+.env
+.env.*
+PLAN.md
+TODO-HUMAN.md
+node_modules
+.next
+dist
+demo/evidence
