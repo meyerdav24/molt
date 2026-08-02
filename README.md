@@ -38,7 +38,7 @@ cp .env.example .env   # fill in the variables; every one is explained inline
 docker compose up
 ```
 
-Full self-hosting docs are being written alongside the implementation.
+Full docs (quickstart, MCP setup, API reference, rendered spec, FAQ) are served by the web app under `/docs`.
 
 ## Connect an agent (MCP)
 

@@ -16,6 +16,7 @@
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
     "jose": "^6.2.6",
+    "marked": "^18.0.7",
     "next": "^14.2.5",
     "postgres": "^3.4.9",
     "react": "^18.3.1",
