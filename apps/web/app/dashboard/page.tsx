@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { db } from '../../lib/db';
 import { getSessionUserId } from '../../lib/session';
+import { DeleteAccountButton } from './delete-account-button';
 import { LogoutButton } from './logout-button';
 import { KeyButton } from './key-button';
 import { RevokeButton } from './revoke-button';
@@ -82,7 +83,7 @@ export default async function DashboardPage() {
       )}
 
       <p style={{ marginTop: '2rem' }}>
-        <LogoutButton />
+        <LogoutButton /> <DeleteAccountButton />
       </p>
     </main>
   );

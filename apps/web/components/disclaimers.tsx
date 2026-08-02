@@ -24,7 +24,10 @@ export function Disclaimers({ compact = false }: { compact?: boolean }) {
           fontFamily: 'system-ui',
         }}
       >
-        {items.join(' ')}
+        {items.join(' ')}{' '}
+        <a href="/privacy" style={{ color: '#888' }}>
+          Privacy
+        </a>
       </footer>
     );
   }

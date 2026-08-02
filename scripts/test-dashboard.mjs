@@ -215,6 +215,40 @@ try {
       JSON.stringify(['1× Espresso Machine Pro', '2× Descaler']),
     'held event carries items_summary for the step-up page',
   );
+
+  // --- GDPR deletion (OT-082): the cascade that actually cascades -------------
+  const eventIds = (await sql`select id from events where user_id = ${userId}`).map((r) => r.id);
+  ok(eventIds.length > 0, 'events exist before deletion');
+
+  const noConfirm = await fetch(`${BASE}/api/auth/delete`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ confirm: 'yes' }),
+  });
+  ok(noConfirm.status === 400, 'deletion without the verbatim confirmation is refused');
+
+  const del = await fetch(`${BASE}/api/auth/delete`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ confirm: 'delete my account and all its data' }),
+  });
+  ok(del.status === 200, 'deletion with confirmation succeeds');
+
+  const [gone] = await sql`select count(*)::int as n from users where id = ${userId}`;
+  const [tabsGone] = await sql`select count(*)::int as n from tabs where user_id = ${userId}`;
+  const [receiptsGone] = await sql`select count(*)::int as n from receipts where id = ${receiptId}`;
+  ok(gone.n === 0 && tabsGone.n === 0 && receiptsGone.n === 0, 'user, tabs, receipts are gone');
+
+  const anonymized = await sql`
+    select count(*)::int as n from events
+    where id = any(${eventIds}) and user_id is null and tab_id is null`;
+  ok(
+    anonymized[0].n === eventIds.length,
+    'event rows remain, anonymized (audit trail without a name)',
+  );
+
+  const [other] = await sql`select count(*)::int as n from users where id = ${otherUserId}`;
+  ok(other.n === 1, "the other user's account is untouched");
 } finally {
   await cleanup();
 }
