@@ -58,8 +58,17 @@ notification, passkey tap, purchase resumes.
 1. Dev stores throttle after many rapid checkouts. If a run fails with a
    structured 429 (`cart_failed`), wait five minutes; the adapter backs off
    politely and never hammers. Space takes a few minutes apart.
-1. Open a fresh tab in the dashboard: 400.00 total, 150.00 per purchase,
-   1 week, step-up on unknown merchants
+1. Open a fresh tab in the dashboard: 400.00 total, 200.00 per purchase,
+   1 week, step-up on unknown merchants. Per purchase MUST be at least
+   189.00: the narrowing rule refuses (422) anything above the per-purchase
+   max before the step-up policy can hold it, so a 150.00 cap would turn
+   the espresso catch scene into a refusal instead of a held tap.
+1. The catch works because harborview is an unknown merchant (held for the
+   tap), not because of the price. A freshly opened tab knows NO merchants:
+   with step-up on unknown merchants, the very FIRST brightside purchase
+   would also be held. For the film flow, warm the tab up before rolling:
+   one small brightside purchase off camera (or keep that first tap in the
+   cut as the honest onboarding moment).
 1. Create the agent key, paste it into the Claude Desktop config, restart
 1. Replace `<TAB_ID>` in the system prompt with the new tab id
 1. Roll.

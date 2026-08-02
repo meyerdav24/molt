@@ -75,12 +75,12 @@ try {
     }
   }
 
-  // 2. clear the history: tabs cascade to mandates, cards, receipts,
-  //    agent keys; tab events go with their tab
+  // 2. clear the history: tabs cascade to mandates, cards, receipts and
+  //    agent keys. The events audit log is append-only by design - deleting
+  //    a tab anonymizes its events (FKs go NULL via cascade), which is
+  //    exactly what a clean take needs: the dashboard renders events per
+  //    tab, and anonymized rows belong to no tab.
   const tabs = await sql`delete from tabs where user_id = ${user.id} returning id`;
-  // events with tab_id are cascaded to null, not deleted - remove the
-  // demo user's stragglers so the next take starts with an empty log
-  await sql`delete from events where user_id = ${user.id}`;
 
   console.log(
     `demo:reset: ${email} clean - ${tabs.length} tab(s) cleared, ` +
