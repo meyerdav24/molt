@@ -17,7 +17,10 @@
     "test": "pnpm -r test",
     "test:db": "sh scripts/test-db.sh",
     "test:rls": "sh scripts/test-db.sh",
-    "test:api": "node scripts/test-api.mjs"
+    "test:api": "node scripts/test-api.mjs",
+    "demo:reset": "node demo/reset.mjs",
+    "test:mcp": "node scripts/test-mcp-e2e.mjs",
+    "test:dashboard": "node scripts/test-dashboard.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

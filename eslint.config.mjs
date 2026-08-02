@@ -15,7 +15,7 @@ export default tseslint.config(
   },
   {
     // Plain-node test/tooling scripts: node globals, console allowed.
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'demo/**/*.mjs'],
     languageOptions: {
       globals: {
         console: 'readonly',
