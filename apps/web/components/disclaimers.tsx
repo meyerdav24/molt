@@ -27,6 +27,10 @@ export function Disclaimers({ compact = false }: { compact?: boolean }) {
         {items.join(' ')}{' '}
         <a href="/privacy" style={{ color: '#888' }}>
           Privacy
+        </a>{' '}
+        ·{' '}
+        <a href="/imprint" style={{ color: '#888' }}>
+          Imprint
         </a>
       </footer>
     );
