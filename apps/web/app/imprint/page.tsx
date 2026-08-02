@@ -1,7 +1,6 @@
 /**
- * Impressum (§5 DDG). The address placeholder is filled by the site
- * operator before launch traffic arrives; see TODO-HUMAN. Reviewed together
- * with the disclaimers by the lawyer-adjacent reader.
+ * Impressum (§5 DDG). Reviewed together with the disclaimers by the
+ * lawyer-adjacent reader.
  */
 export const metadata = { title: 'Imprint - Molt' };
 
@@ -15,10 +14,9 @@ export default function ImprintPage() {
       <p>
         David Meyer
         <br />
-        {/* TODO-HUMAN: ladungsfaehige Anschrift eintragen (Strasse, PLZ, Ort) */}
-        [address pending]
+        Vogelweidestraße 5
         <br />
-        Munich, Germany
+        81677 München, Germany
       </p>
       <p>
         Contact: <code>privacy@moltprotocol.dev</code>
