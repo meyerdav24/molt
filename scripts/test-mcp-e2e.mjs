@@ -62,7 +62,9 @@ async function seed() {
     currency: 'EUR',
     per_tx_max_minor: 10000,
     expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
-    mcc_allowlist: [],
+    // office_electronics MCCs: card provisioning must survive the
+    // category mapping (the film-day rehearsal caught invalid names here)
+    mcc_allowlist: ['5943', '5111', '5732', '5734', '5045'],
     velocity_per_hour: 10,
     merchant_scope: '*',
   };
