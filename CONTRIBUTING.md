@@ -20,6 +20,19 @@ git commit --signoff
 
 This appends a `Signed-off-by: Your Name <you@example.com>` line to your commit message, certifying you have the right to submit the work under Apache 2.0. CI rejects unsigned commits from non-team contributors. No CLA, no paperwork — one flag.
 
+## Tests, and where they live
+
+`pnpm -r test` runs the unit suites (protocol 57, adapters, mcp-server, demo-seller; all offline). The integration scripts need a running web app (`pnpm --filter @molt/web dev`) plus the variables in `.env.example`:
+
+- `pnpm test:api` - every /v1 endpoint, policy and narrowing paths, dual-signed receipt round trip
+- `pnpm test:dashboard` - dashboard, receipts download, GDPR deletion, tier cap, over real HTTP
+- `node scripts/test-mcp-e2e.mjs` - a real L1 purchase driven through the MCP server (needs dev stores)
+- `node scripts/test-x402-e2e.mjs [--real]` - the L0 rung; `--real` settles on Base Sepolia
+- `node scripts/dry-run.mjs` - the full cold loop, one line of shape output per run
+- `pnpm test:rls` - row-level-security assertions against the database
+
+Nothing merges against `packages/protocol/src/mandate.ts` unless its adversarial suite is green.
+
 ## Ground rules
 
 - Guardrails G1–G4 in the spec (no funds custody, no payment initiation, no SCA performance, no crypto custody) are product requirements. PRs that trade a guardrail for a feature are declined; the ticket changes, not the guardrail.
