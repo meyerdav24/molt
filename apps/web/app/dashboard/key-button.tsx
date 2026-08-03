@@ -43,6 +43,12 @@ function claudeJson(key: string, apiUrl: string): string {
   );
 }
 
+function agentInstall(key: string, apiUrl: string): string {
+  return `Add this MCP server to your own configuration (for Hermes: ~/.hermes/config.yaml under mcp_servers), fix the args path to where the molt repo is checked out, then reload your MCP servers and confirm the four molt tools are available:
+
+${hermesYaml(key, apiUrl)}`;
+}
+
 function CopyBlock({ label, text }: { label: string; text: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -134,6 +140,10 @@ export function KeyButton({ tabId }: { tabId: string }) {
               /docs/mcp
             </a>
           </p>
+          <CopyBlock
+            label="Or just tell your agent (paste into the chat; it installs itself)"
+            text={agentInstall(secret, apiUrl)}
+          />
           <CopyBlock
             label="Hermes Agent (~/.hermes/config.yaml)"
             text={hermesYaml(secret, apiUrl)}
