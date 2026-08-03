@@ -25,7 +25,7 @@ export default function McpDocs() {
       "command": "node",
       "args": ["/path/to/molt/apps/mcp-server/dist/index.js"],
       "env": {
-        "MOLT_API_URL": "http://localhost:3000",
+        "MOLT_API_URL": "https://moltprotocol.dev",
         "MOLT_AGENT_KEY": "molt_sk_test_...",
         "MOLT_SHIPPING_PROFILE": "{\\"email\\":\\"you@example.com\\",\\"first_name\\":\\"Ada\\",\\"last_name\\":\\"Lovelace\\",\\"address1\\":\\"Teststr. 1\\",\\"city\\":\\"Munich\\",\\"zip\\":\\"80331\\",\\"country_code\\":\\"DE\\"}"
       }
@@ -33,6 +33,8 @@ export default function McpDocs() {
   }
 }`}</pre>
       <p>
+        <code>MOLT_API_URL</code> points at the Tab Authority you use: the hosted beta
+        (moltprotocol.dev) or your own instance (http://localhost:3000 with docker compose).
         Optional: <code>MOLT_STOREFRONT_PASSWORDS</code> (host|password pairs for password-protected
         dev stores), <code>MOLT_BOGUS_GATEWAY_HOSTS</code>, <code>MOLT_EVIDENCE_DIR</code>,{' '}
         <code>MOLT_CHECKOUT_TIMEOUT_MS</code>, <code>MOLT_AUDIT_LOG_PATH</code>;{' '}
