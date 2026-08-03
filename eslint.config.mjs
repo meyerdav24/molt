@@ -14,6 +14,11 @@ export default tseslint.config(
     },
   },
   {
+    // CLIs talk to humans on stdout; that is their job.
+    files: ['apps/mcp-server/src/wallet-cli.ts', 'packages/protocol/src/cli.ts'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     // k6 load scripts run inside k6's runtime, not node.
     files: ['scripts/load/**/*.js'],
     languageOptions: {
