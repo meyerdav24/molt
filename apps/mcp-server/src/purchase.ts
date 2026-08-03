@@ -124,16 +124,23 @@ async function shedShell(ta: TaClient, mandateId: string): Promise<boolean> {
   }
 }
 
+/** Live narration for the agent host (OT-100 finding: minutes of silence
+ *  during a purchase are unacceptable; every step reports). */
+export type ProgressFn = (message: string) => void;
+
 export async function purchase(
   cfg: MoltConfig,
   ta: TaClient,
   signingKey: AgentSigningKey,
   input: PurchaseInput,
+  onProgress?: ProgressFn,
 ): Promise<PurchaseOutcome> {
   // --- rung selection -------------------------------------------------------
+  onProgress?.('resolving merchant platform');
   const detection = await resolveMerchant(input.merchant_url);
   if (detection.platform === 'x402') {
-    return purchaseL0(cfg, ta, signingKey, input, detection);
+    onProgress?.('merchant speaks x402: paying on the L0 rung');
+    return purchaseL0(cfg, ta, signingKey, input, detection, onProgress);
   }
   if (detection.platform !== 'shopify') {
     return {
@@ -170,6 +177,9 @@ export async function purchase(
   };
 
   // --- quote: walk to checkout with NO card, extract the real cart ----------
+  onProgress?.(
+    'quote pass: walking the store checkout with NO card (can take 30-120s; slow stores are waited out politely)',
+  );
   const quote = await shopifyQuote(quoteReq);
   if (!quote.ok) {
     return {
@@ -184,6 +194,9 @@ export async function purchase(
   const cart: NormalizedCart = quote.cart;
   const hash = cartHash(cart);
   const idempotencyKey = deriveIdempotencyKey(input.tab_id, origin, hash);
+  onProgress?.(
+    `quoted ${cart.total_minor} ${cart.currency} minor units for this exact cart; checking for duplicates`,
+  );
 
   // --- OT-054: the same cart commits at most once ---------------------------
   const receipts = await ta.call<{ receipts?: { id: string; idempotency_key: string }[] }>(
@@ -248,6 +261,7 @@ export async function purchase(
     bounds = m.bounds;
     card = m.card;
   } else {
+    onProgress?.('requesting a child mandate scoped to exactly this cart');
     const mint = await ta.call<MintResponse>('POST', `/v1/tabs/${input.tab_id}/mandates`, {
       merchant_origin: origin,
       amount_minor: cart.total_minor,
@@ -302,6 +316,9 @@ export async function purchase(
     );
   }
 
+  onProgress?.(
+    'shell grown: single-use card delivered; commit pass through the checkout (30-120s)',
+  );
   // --- checkout: card enters only if the displayed total matches exactly ----
   // Bogus-gateway dev stores cannot charge a test-mode Issuing card (Stripe
   // test mode never routes across accounts), so there the simulated acquirer
@@ -338,6 +355,9 @@ export async function purchase(
   }
 
   // --- receipt: agent signs, TA countersigns, verifiable offline ------------
+  onProgress?.(
+    `order confirmed (${result.order_confirmation.slice(0, 40)}); filing the dual-signed receipt`,
+  );
   const body: ReceiptBody = {
     id: randomUUID(),
     tab_id: input.tab_id,
@@ -403,6 +423,7 @@ async function purchaseL0(
   signingKey: AgentSigningKey,
   input: PurchaseInput,
   detection: DetectionResult,
+  onProgress?: ProgressFn,
 ): Promise<PurchaseOutcome> {
   const origin = new URL(input.merchant_url).origin;
 
@@ -420,6 +441,7 @@ async function purchaseL0(
   }
 
   // --- probe: read the terms, no payment involved ---------------------------
+  onProgress?.('reading the 402 payment terms (no payment yet)');
   let probeBody = '';
   let probeStatus = 0;
   try {
@@ -548,6 +570,9 @@ async function purchaseL0(
   }
 
   // --- pay ------------------------------------------------------------------
+  onProgress?.(
+    'mandate active: signing the transfer authorization from the local wallet and paying',
+  );
   const result = await fetchWithX402(input.merchant_url, {
     account,
     maxAmountMinor: atomic,

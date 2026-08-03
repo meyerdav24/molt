@@ -26,19 +26,33 @@ export async function sendStepUpEmail(mail: StepUpEmail): Promise<{ sent: boolea
     return { sent: false };
   }
 
+  // Gmail collapses trailing content that repeats byte-identically across
+  // mails ("trimmed content"), which once hid the trigger and the deny
+  // guidance: the action leads, and every closing line carries per-mail data.
+  const host = mail.merchant.replace(/^https?:\/\//, '');
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       from: process.env.EMAIL_FROM ?? 'step-up@localhost',
       to: mail.to,
-      subject: `Approve purchase: ${amount} at ${mail.merchant}`,
+      subject: `Approve purchase: ${amount} at ${host}`,
       html: [
-        `<p>Your agent wants to buy at <strong>${mail.merchant}</strong> for <strong>${amount}</strong>.</p>`,
-        `<p>Reason: ${mail.reason}</p>`,
+        `<p>Your agent wants to buy at <strong>${host}</strong> for <strong>${amount}</strong>.</p>`,
+        `<p style="margin:16px 0"><a href="${mail.url}" style="background:#0a7d33;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">Review and approve or deny</a></p>`,
         `<p>Held because: ${mail.triggers.join('; ')}</p>`,
-        `<p><a href="${mail.url}">Review and approve or deny</a> (expires in 15 minutes).</p>`,
-        `<p>Approval requires your passkey. If you did not expect this, deny it.</p>`,
+        `<p>Reason given by the agent: ${mail.reason}</p>`,
+        `<p>Approving the ${amount} purchase requires your passkey; the link alone approves nothing. If you did not expect a charge at ${host}, deny it. This request expires 15 minutes after it was created.</p>`,
+      ].join('\n'),
+      text: [
+        `Your agent wants to buy at ${host} for ${amount}.`,
+        '',
+        `Review and approve or deny: ${mail.url}`,
+        '',
+        `Held because: ${mail.triggers.join('; ')}`,
+        `Reason given by the agent: ${mail.reason}`,
+        '',
+        `Approving the ${amount} purchase requires your passkey; the link alone approves nothing. If you did not expect a charge at ${host}, deny it. This request expires 15 minutes after it was created.`,
       ].join('\n'),
     }),
   });

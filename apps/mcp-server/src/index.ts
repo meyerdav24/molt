@@ -10,6 +10,8 @@
  * Transports: stdio (default) and SSE (--sse [port]).
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createHash } from 'node:crypto';
@@ -74,13 +76,40 @@ function summarize(result: ToolResult): string {
  * OT-041 wrapper around every tool: per-key rate limit in, audit line out,
  * and no exception ever escapes as a crash.
  */
+type HandlerExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+
+/**
+ * Live narration (OT-100 finding): minutes of silence during a purchase are
+ * unacceptable. Prefers MCP progress notifications when the client sent a
+ * progressToken; falls back to logging notifications so hosts without
+ * progress UI still see every step.
+ */
+function progressReporter(extra: HandlerExtra | undefined): (msg: string) => void {
+  let step = 0;
+  return (message: string) => {
+    if (!extra) return;
+    const token = extra._meta?.progressToken;
+    const notification: ServerNotification =
+      token !== undefined
+        ? {
+            method: 'notifications/progress' as const,
+            params: { progressToken: token, progress: ++step, message },
+          }
+        : {
+            method: 'notifications/message' as const,
+            params: { level: 'info' as const, data: message },
+          };
+    void extra.sendNotification(notification).catch(() => {});
+  };
+}
+
 function guarded<A>(
   cfg: MoltConfig,
   rateKey: string,
   tool: string,
-  handler: (args: A) => Promise<ToolResult>,
-): (args: A) => Promise<ToolResult> {
-  return async (args) => {
+  handler: (args: A, extra?: HandlerExtra) => Promise<ToolResult>,
+): (args: A, extra?: HandlerExtra) => Promise<ToolResult> {
+  return async (args, extra) => {
     const started = Date.now();
     let result: ToolResult;
     const wait = checkRate(rateKey, tool);
@@ -95,7 +124,7 @@ function guarded<A>(
       );
     } else {
       try {
-        result = await handler(args);
+        result = await handler(args, extra);
       } catch (e) {
         result = asToolError(e);
       }
@@ -112,7 +141,10 @@ function guarded<A>(
 }
 
 function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey): McpServer {
-  const server = new McpServer({ name: 'molt', version: '0.1.0' });
+  const server = new McpServer(
+    { name: 'molt', version: '0.1.0' },
+    { capabilities: { logging: {} } },
+  );
   // rate-limit bucket per agent key (hashed - the key itself stays out of memory dumps)
   const rateKey = cfg.agentKey
     ? createHash('sha256').update(cfg.agentKey).digest('hex').slice(0, 16)
@@ -195,7 +227,7 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         ),
       },
     },
-    guarded(cfg, rateKey, 'purchase', async (input: Parameters<typeof purchase>[3]) => {
+    guarded(cfg, rateKey, 'purchase', async (input: Parameters<typeof purchase>[3], extra) => {
       if (!ta.hasKey) {
         return textResult(
           {
@@ -207,9 +239,13 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         );
       }
       assertHttpUrl(input.merchant_url);
+      const report = progressReporter(extra);
       let outcome;
       try {
-        outcome = await purchaseQueue.run(() => purchase(cfg, ta, signingKey, input));
+        outcome = await purchaseQueue.run(() => {
+          report('purchase started (one browser at a time; queued purchases wait)');
+          return purchase(cfg, ta, signingKey, input, report);
+        });
       } catch (e) {
         if (e instanceof QueueFullError) {
           return textResult(
