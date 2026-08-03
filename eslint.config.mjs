@@ -37,6 +37,7 @@ export default tseslint.config(
         Buffer: 'readonly',
         setTimeout: 'readonly',
         TextEncoder: 'readonly',
+        AbortSignal: 'readonly',
       },
     },
     rules: {
