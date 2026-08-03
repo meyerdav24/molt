@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@molt/protocol": "workspace:*",
-    "playwright": "^1.62.1"
+    "playwright": "^1.62.1",
+    "viem": "^2.55.10"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",

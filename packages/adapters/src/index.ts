@@ -38,6 +38,15 @@ export {
   type PreflightViolation,
 } from './preflight.js';
 export {
+  BASE_SEPOLIA_CHAIN_ID,
+  BASE_SEPOLIA_USDC,
+  DEFAULT_RPC_URL,
+  initWallet,
+  loadWallet,
+  usdcBalance,
+  walletAddress,
+} from './wallet.js';
+export {
   parseDisplayedMoney,
   shopifyCheckout,
   shopifyQuote,

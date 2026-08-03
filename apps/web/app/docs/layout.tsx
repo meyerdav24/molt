@@ -9,6 +9,7 @@ const NAV: [string, string][] = [
   ['/docs', 'Overview'],
   ['/docs/quickstart', 'Quickstart'],
   ['/docs/mcp', 'Claude Desktop / MCP'],
+  ['/docs/wallet', 'Agent wallet (x402)'],
   ['/docs/api', 'API reference'],
   ['/docs/spec', 'Protocol spec'],
   ['/docs/faq', 'FAQ'],

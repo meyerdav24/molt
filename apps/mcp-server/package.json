@@ -6,7 +6,8 @@
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
-    "molt-mcp-server": "./dist/index.js"
+    "molt-mcp-server": "./dist/index.js",
+    "molt-wallet": "./dist/wallet-cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
