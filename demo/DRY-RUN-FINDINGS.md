@@ -69,6 +69,20 @@ polite backoff, nothing minted, nothing charged.
     quiet between heavy rehearsal and the shoot, and keep a second store
     ready as the backup take target. Space takes minutes apart.
 
+11. **We were hitting the store twice per purchase** (found by questioning
+    the throttling diagnosis rather than accepting it). shopifyQuote and
+    shopifyCheckout each launched a browser and ran the full walk, so every
+    MCP purchase repeated the password gate, cart clear, cart add and
+    checkout load - precisely the endpoints merchants throttle. A direct
+    one-pass checkout finished in 9s where agent purchases took minutes and
+    failed. Fixed: shopifyOpenCheckout returns a live session held open
+    across the mandate request, so the card is the only thing added after
+    minting. Halves store load and roughly halves purchase time.
+12. **A throttled password page looked exactly like a wrong password.** Our
+    adapter reported password_rejected for what was really "come back
+    later", which sent the diagnosis down the wrong path for a while. Now
+    distinguished as blocked_by_merchant.
+
 ## Timings (healthy store, per stage)
 
 reset 0.5s · seed 0.6s · purchase 20-30s (2 browser passes + mint + receipt;
