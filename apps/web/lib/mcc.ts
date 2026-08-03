@@ -30,8 +30,11 @@ export const MCC_CATEGORIES: MccCategory[] = [
  * controls (the mandate-level MCC check still applies server-side).
  */
 export const MCC_TO_STRIPE_CATEGORY: Record<string, string> = {
-  '5943': 'stationary_stores_office_and_school_supply_stores',
-  '5111': 'stationery_office_supplies_printing_and_writing_paper',
+  // Stripe's enum spells these inconsistently ("stationery" stores, but
+  // "stationary" office supplies) - validated against the live API, do not
+  // "fix" the spelling without re-probing (scripts in git history, OT-101).
+  '5943': 'stationery_stores_office_and_school_supply_stores',
+  '5111': 'stationary_office_supplies_printing_and_writing_paper',
   '5732': 'electronics_stores',
   '5734': 'computer_software_stores',
   '5045': 'computers_peripherals_and_software',
@@ -46,7 +49,7 @@ export const MCC_TO_STRIPE_CATEGORY: Record<string, string> = {
   '5211': 'lumber_building_materials_stores',
   '5712': 'furniture_home_furnishings_and_equipment_stores_except_appliances',
   '5651': 'family_clothing_stores',
-  '5691': 'mens_and_womens_clothing_stores',
+  '5691': 'mens_womens_clothing_stores',
   '5817': 'digital_goods_applications',
   '5818': 'digital_goods_large_volume',
   '7372': 'computer_programming',
