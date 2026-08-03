@@ -41,7 +41,7 @@ export default function Home() {
         <h2 style={{ fontSize: '1.2rem' }}>One purchase, one shell</h2>
         <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap' }}>
           <CycleStep
-            n="🐚"
+            n="🦞"
             title="Grown"
             text="A shell is a disposable payment credential sized to one cart: one store, one amount, minutes of lifetime. It only exists because your signed limits allow it."
           />
@@ -51,7 +51,7 @@ export default function Home() {
             text="The agent checks out with it, after the checkout total matched the mandate to the cent. One authorization is all a shell can carry."
           />
           <CycleStep
-            n="🍂"
+            n="🍤"
             title="Shed"
             text="Used or not, the shell dies. The agent molts after every purchase. What remains is a dual-signed receipt you can verify offline."
           />
