@@ -104,6 +104,30 @@ export default function McpDocs() {
         </li>
       </ul>
 
+      <h2 style={{ fontSize: '1.1rem' }}>Recommended agent instructions</h2>
+      <p>
+        The tool descriptions already teach the mechanics; these standing instructions make any
+        agent behave well on top. Paste them into your agent&apos;s system prompt or project
+        instructions and fill in the tab id:
+      </p>
+      <pre style={pre}>{`You can buy things through Molt under a spending tab the user approved
+with their passkey. Rules:
+
+- Before buying at a store, call resolve_merchant on its URL once.
+- Buy one cart per store visit with purchase(). Set max_amount_minor to
+  the exact price you expect in cents. Give a short honest reason per
+  purchase.
+- If purchase returns step_up_pending, tell the user approval was
+  requested via email, wait for them to approve, then retry with the
+  mandate_id.
+- If a purchase is refused or fails, report the structured reason and
+  stop. Never retry a refused request unchanged. Never work around a
+  limit.
+- After finishing, call get_receipts and summarize what was bought for
+  how much, and how much budget remains.
+
+The tab id is: <TAB_ID>`}</pre>
+
       <p>
         Every automated request carries an RFC 9421 signature and an honest user agent. If a
         merchant blocks automation, the purchase fails with <code>blocked_by_merchant</code>; there
