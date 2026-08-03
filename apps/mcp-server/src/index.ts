@@ -112,6 +112,10 @@ type HandlerExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 function progressReporter(extra: HandlerExtra | undefined): (msg: string) => void {
   let step = 0;
   return (message: string) => {
+    // stderr always: whether a client renders progress notifications is its
+    // choice, but every MCP host surfaces server logs somewhere, so the
+    // narration is never lost.
+    console.error(`[molt] ${message}`);
     if (!extra) return;
     const token = extra._meta?.progressToken;
     const notification: ServerNotification =
