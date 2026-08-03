@@ -30,13 +30,22 @@ export function KeyButton({ tabId }: { tabId: string }) {
       <button onClick={rotate}>Agent key</button>
       {error && <span style={{ color: 'crimson', marginLeft: '0.5rem' }}>{error}</span>}
       {secret && (
+        // Fixed panel, not inline: this component also lives inside a narrow
+        // table cell, where a 60-character secret has nowhere to wrap.
         <div
           style={{
-            marginTop: '0.5rem',
-            padding: '0.6rem 0.8rem',
+            position: 'fixed',
+            left: '50%',
+            bottom: '1.5rem',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+            maxWidth: 'min(560px, 92vw)',
+            padding: '0.8rem 1rem',
             border: '1px solid #0a7d33',
-            borderRadius: 6,
+            borderRadius: 8,
             background: '#f6fbf7',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            textAlign: 'left',
           }}
         >
           <div style={{ fontSize: '0.85rem', marginBottom: '0.3rem' }}>
@@ -58,7 +67,8 @@ export function KeyButton({ tabId }: { tabId: string }) {
             }}
           >
             {copied ? 'Copied' : 'Copy'}
-          </button>
+          </button>{' '}
+          <button onClick={() => setSecret(null)}>Done</button>
         </div>
       )}
     </span>
