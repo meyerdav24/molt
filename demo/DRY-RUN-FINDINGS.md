@@ -46,15 +46,14 @@ polite backoff, nothing minted, nothing charged.
    per-mail data, plain-text part added.
 8. **A purchase was silent for minutes.** The MCP server now emits
    progress notifications for every stage (logging fallback).
-9. **Open UX debt, not yet fixed:**
-   - _Agent key per tab means editing a config file in a terminal._ The
-     one-key-one-tab rule is the security model and stays, but the
-     delivery is hostile to newcomers. Worth exploring: a copy-paste
-     block that includes the whole MCP config, or a short-lived pairing
-     code the agent host can redeem.
-   - _Reserved budget is invisible._ A held or approved mandate parks its
-     amount, and the dashboard shows only the reduced "remaining" with no
-     hint that the difference is a reservation, not a spend.
+9. **UX debt found and paid the same evening:**
+   - _Agent key per tab meant editing a config file in a terminal._ The
+     key panel now serves complete copy-paste MCP configs (Hermes YAML,
+     Claude Desktop JSON) with the key and the TA's own URL filled in.
+     The one-key-one-tab rule stays; it is the security model.
+   - _Reserved budget was invisible._ The tab detail now splits spent
+     from reserved (amber bar segment plus a plain-words explainer that
+     a parked amount flows back if the purchase does not complete).
 
 ## Timings (healthy store, per stage)
 
