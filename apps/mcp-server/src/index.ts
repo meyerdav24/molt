@@ -204,7 +204,13 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         items: z
           .array(
             z.object({
-              variant_id: z.number().int().positive().describe('Shopify variant id'),
+              variant_id: z
+                .number()
+                .int()
+                .positive()
+                .describe(
+                  "Shopify variant id; find ids and prices in the store's public catalog at <store-url>/products.json",
+                ),
               quantity: z.number().int().min(1).max(99),
             }),
           )
