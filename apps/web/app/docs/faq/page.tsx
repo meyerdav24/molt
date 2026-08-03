@@ -47,6 +47,20 @@ const QA: [string, React.ReactNode][] = [
     </>,
   ],
   [
+    'Why cards at all? Why not just pay in crypto?',
+    <>
+      Because coverage is the whole point. Molt exists to buy at stores that have never heard of AI
+      agents, and those stores take cards; almost none speak x402 or accept stablecoins. So Molt
+      does both, and the ladder picks: x402 with testnet USDC where the counterparty implements it
+      (machine-to-machine APIs, cent-sized payments, instant settlement, no issuer involved), and a
+      single-use scoped card everywhere else, where the merchant just sees an ordinary card
+      transaction and has to do nothing. The mandate and receipt layer is identical for both rails -
+      the rung is only how a purchase executes, never what it is allowed to be. One thing worth
+      saying out loud: for delegated spending, the irreversibility of on-chain payments is a
+      drawback, not a feature. If your agent gets something wrong, a card rail has a dispute path.
+    </>,
+  ],
+  [
     'Does the agent see my card?',
     <>
       It sees one disposable shell at a time: a single-use test card scoped to one cart, capped at
