@@ -30,6 +30,21 @@ export const MCP_TOOL_NAMES = ['open_tab', 'resolve_merchant', 'purchase', 'get_
 
 const UUID = z.string().uuid();
 
+/**
+ * What a client sees before a tab is connected. Says what an agent key
+ * looks like and where it goes, so a human can simply paste one into the
+ * chat and any agent knows what to do with it - no system prompt needed.
+ */
+const NOT_CONNECTED = [
+  'this server is not connected to a tab yet.',
+  'A tab-scoped agent key looks like molt_sk_test_ followed by 48 hex characters;',
+  'the human creates it in the Molt dashboard after the passkey ceremony, and it is shown once.',
+  "If they give you one, put it in this server's MOLT_AGENT_KEY environment variable",
+  '(the MCP configuration entry that starts this server) and restart it -',
+  'the dashboard also hands out ready-made config blocks you can apply directly.',
+  'If they have no tab yet, call open_tab and send them the ceremony URL.',
+].join(' ');
+
 // OT-102: one browser per purchase, strictly serialized, short honest line.
 const purchaseQueue = new BoundedQueue(1, 3);
 
@@ -158,7 +173,9 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         'Start opening a spending tab. Returns a ceremony URL that the HUMAN OWNER must open to ' +
         'set the budget, expiry and rules, and sign them with their passkey. You cannot complete ' +
         'this yourself: a tab only exists after the human ceremony. Afterwards the human creates ' +
-        'an agent key in the dashboard and configures it as MOLT_AGENT_KEY for this server.',
+        'an agent key in the dashboard (it looks like molt_sk_test_ plus 48 hex characters, is ' +
+        "shown once, and is scoped to that one tab) and configures it as this server's " +
+        "MOLT_AGENT_KEY, or pastes the dashboard's ready-made config block to you.",
       inputSchema: {},
     },
     guarded(cfg, rateKey, 'open_tab', async () => {
@@ -238,8 +255,7 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         return textResult(
           {
             error: 'not_configured',
-            message:
-              'MOLT_AGENT_KEY is not set. Use open_tab, have the human complete the ceremony and create an agent key, then restart this server with the key configured.',
+            message: NOT_CONNECTED,
           },
           true,
         );
@@ -281,7 +297,13 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
     },
     guarded(cfg, rateKey, 'get_receipts', async ({ tab_id }: { tab_id: string }) => {
       if (!ta.hasKey) {
-        return textResult({ error: 'not_configured', message: 'MOLT_AGENT_KEY is not set.' }, true);
+        return textResult(
+          {
+            error: 'not_configured',
+            message: NOT_CONNECTED,
+          },
+          true,
+        );
       }
       const res = await ta.call('GET', `/v1/tabs/${tab_id}/receipts`);
       return textResult(res.body, res.status !== 200);
