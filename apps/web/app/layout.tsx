@@ -4,11 +4,11 @@ import { Disclaimers } from '../components/disclaimers';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://moltprotocol.dev'),
-  title: 'Molt',
+  title: 'Molt - delegate bounded spending to an AI agent',
   description:
     'Delegate bounded spending to an AI agent. It grows a disposable shell for every purchase, wears it once, and sheds it.',
   openGraph: {
-    title: 'Molt',
+    title: 'Molt - delegate bounded spending to an AI agent',
     description:
       'Delegate bounded spending to an AI agent. It grows a disposable shell for every purchase, wears it once, and sheds it.',
     url: 'https://moltprotocol.dev',
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Molt',
+    title: 'Molt - delegate bounded spending to an AI agent',
     description:
       'Delegate bounded spending to an AI agent. It grows a disposable shell for every purchase, wears it once, and sheds it.',
     images: ['/og.png'],
