@@ -118,6 +118,8 @@ export interface ShopifyQuoteRequest {
   session_state_path?: string;
   headed?: boolean;
   timeout_ms?: number;
+  /** Where commit-time evidence lands, when the session is committed. */
+  evidence_dir?: string;
 }
 
 export type ShopifyQuoteResult =
@@ -167,6 +169,23 @@ async function passPasswordGate(
     page.click('button[type="submit"], input[type="submit"]'),
   ]);
   if (page.url().includes('/password')) {
+    // A throttled password submission re-renders the same page, which looks
+    // exactly like a rejected password. Distinguishing them matters: one is
+    // a config error, the other is "come back later" - and calling a
+    // throttle a wrong password sends people hunting the wrong bug.
+    const body = (await page.content()).toLowerCase();
+    if (
+      body.includes('too many') ||
+      body.includes('try again later') ||
+      body.includes('rate limit') ||
+      (await detectChallenge(page))
+    ) {
+      return fail(
+        'password_gate',
+        'blocked_by_merchant',
+        'the storefront password page is throttling or challenging us; the password itself was not judged. Wait and retry.',
+      );
+    }
     return fail('password_gate', 'password_rejected', 'storefront password was rejected');
   }
   return true;
@@ -398,31 +417,115 @@ async function prepareCheckout(
 }
 
 /**
- * Quote pass (the OT-054 wiring): walk to the checkout page WITHOUT a card
- * and return the normalized cart. The child mandate gets scoped to this
- * cart's hash; the commit pass must reproduce it exactly.
+ * An open checkout session: quoted, filled in, waiting at the payment step
+ * with no card entered. Holding it open across the mandate request is what
+ * keeps a purchase to ONE pass over the store's cart endpoints instead of
+ * two - those endpoints are what merchants throttle, and a doubled load was
+ * the single biggest cause of failed runs during the rehearsals.
+ */
+export interface ShopifyCheckoutSession {
+  cart: NormalizedCart;
+  /** Enter the card and confirm. Closes the session either way. */
+  commit(card: CardPayload, expectedTotalMinor: number): Promise<ShopifyCheckoutResult>;
+  /** Walk away without paying (refused mandate, changed cart, any abort). */
+  abandon(): Promise<void>;
+}
+
+export type ShopifyOpenResult =
+  { ok: true; rung: 'L1'; session: ShopifyCheckoutSession } | ShopifyCheckoutFailure;
+
+/**
+ * Open a checkout: password gate, cart, shipping, and the quoted total -
+ * everything except the card. The caller mints its mandate against
+ * `session.cart` and then calls `commit` on the SAME live browser.
+ */
+export async function shopifyOpenCheckout(req: ShopifyQuoteRequest): Promise<ShopifyOpenResult> {
+  const { browser, context, page } = await launch(req);
+  let prepared;
+  try {
+    prepared = await prepareCheckout(page, context, req);
+  } catch (e) {
+    await browser.close();
+    return fail(
+      'checkout_load',
+      'checkout_unreachable',
+      `checkout walk threw: ${e instanceof Error ? e.message : e}`,
+    );
+  }
+  if ('ok' in prepared) {
+    await browser.close();
+    return prepared;
+  }
+
+  const timeout = req.timeout_ms ?? 90_000;
+  let settled = false;
+  const close = async () => {
+    if (settled) return;
+    settled = true;
+    await browser.close().catch(() => {});
+  };
+
+  return {
+    ok: true,
+    rung: 'L1',
+    session: {
+      cart: prepared.cart,
+      abandon: close,
+      async commit(card, expectedTotalMinor) {
+        try {
+          return await payAndConfirm(page, {
+            card,
+            expectedTotalMinor,
+            displayedTotalMinor: prepared.cart.total_minor,
+            evidenceDir: req.evidence_dir ?? '.',
+            timeout,
+          });
+        } finally {
+          await close();
+        }
+      },
+    },
+  };
+}
+
+/**
+ * Quote only (no commit). Kept for callers that just want a price; a real
+ * purchase should use shopifyOpenCheckout so the store is walked once.
  */
 export async function shopifyQuote(req: ShopifyQuoteRequest): Promise<ShopifyQuoteResult> {
-  const { browser, context, page } = await launch(req);
-  try {
-    const prepared = await prepareCheckout(page, context, req);
-    if ('ok' in prepared) return prepared;
-    return { ok: true, rung: 'L1', cart: prepared.cart };
-  } finally {
-    await browser.close();
-  }
+  const opened = await shopifyOpenCheckout(req);
+  if (!opened.ok) return opened;
+  const cart = opened.session.cart;
+  await opened.session.abandon();
+  return { ok: true, rung: 'L1', cart };
 }
 
 export async function shopifyCheckout(req: ShopifyCheckoutRequest): Promise<ShopifyCheckoutResult> {
-  const timeout = req.timeout_ms ?? 90_000;
-  const { browser, context, page } = await launch(req);
+  const opened = await shopifyOpenCheckout(req);
+  if (!opened.ok) return opened;
+  return opened.session.commit(req.card, req.expected_total_minor);
+}
 
-  try {
-    const prepared = await prepareCheckout(page, context, req);
-    if ('ok' in prepared) return prepared;
-
+/** The payment half: preflight, card entry, confirmation, evidence. */
+async function payAndConfirm(
+  page: Page,
+  opts: {
+    card: CardPayload;
+    expectedTotalMinor: number;
+    displayedTotalMinor: number;
+    evidenceDir: string;
+    timeout: number;
+  },
+): Promise<ShopifyCheckoutResult> {
+  const req = {
+    card: opts.card,
+    expected_total_minor: opts.expectedTotalMinor,
+    evidence_dir: opts.evidenceDir,
+  };
+  const timeout = opts.timeout;
+  {
     // --- preflight: total must match EXACTLY before any card entry --------
-    const displayed = prepared.cart.total_minor;
+    const displayed = opts.displayedTotalMinor;
     if (displayed !== req.expected_total_minor) {
       return fail(
         'preflight_total',
@@ -505,7 +608,5 @@ export async function shopifyCheckout(req: ShopifyCheckoutRequest): Promise<Shop
         screenshot_path: screenshotPath,
       },
     };
-  } finally {
-    await browser.close();
   }
 }

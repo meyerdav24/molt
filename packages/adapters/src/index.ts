@@ -61,7 +61,10 @@ export {
 export {
   parseDisplayedMoney,
   shopifyCheckout,
+  shopifyOpenCheckout,
   shopifyQuote,
+  type ShopifyCheckoutSession,
+  type ShopifyOpenResult,
   type CardPayload,
   type ShippingProfile,
   type ShopifyCheckoutRequest,
