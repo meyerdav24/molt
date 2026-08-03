@@ -148,8 +148,15 @@ export default async function TabDetailPage({ params }: { params: { id: string }
   const worn = children.filter((c) => c.status === 'consumed').length;
   const shed = children.filter((c) => SHED_STATES.has(c.status)).length;
 
-  const spentMinor = Number(tab.total_minor) - Number(tab.remaining_minor);
-  const spentPct = Math.min(100, Math.round((spentMinor / Number(tab.total_minor)) * 100));
+  // A live (held/active/approved) mandate PARKS its amount - reserved, not
+  // spent. Without this split the dashboard reads a reservation as a spend.
+  const reservedMinor = children
+    .filter((c) => ['held', 'active', 'approved'].includes(c.status))
+    .reduce((sum, c) => sum + Number(c.amount_minor), 0);
+  const spentMinor = Number(tab.total_minor) - Number(tab.remaining_minor) - reservedMinor;
+  const total = Number(tab.total_minor);
+  const spentPct = Math.min(100, Math.round((spentMinor / total) * 100));
+  const reservedPct = Math.min(100 - spentPct, Math.round((reservedMinor / total) * 100));
 
   const consumedByMandate = new Map(receipts.map((r) => [r.mandate_id, r.id]));
 
@@ -176,22 +183,37 @@ export default async function TabDetailPage({ params }: { params: { id: string }
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
             <span>
               spent <strong>{eur(spentMinor, tab.currency)}</strong>
+              {reservedMinor > 0 && (
+                <span style={{ color: '#b06f00' }}>
+                  {' '}
+                  · reserved <strong>{eur(reservedMinor, tab.currency)}</strong>
+                </span>
+              )}
             </span>
             <span>
-              remaining <strong>{eur(tab.remaining_minor, tab.currency)}</strong> of{' '}
+              available <strong>{eur(tab.remaining_minor, tab.currency)}</strong> of{' '}
               {eur(tab.total_minor, tab.currency)}
             </span>
           </div>
-          <div style={{ background: '#eee', borderRadius: 4, height: 8, marginTop: 4 }}>
-            <div
-              style={{
-                width: `${spentPct}%`,
-                background: '#0a7d33',
-                height: 8,
-                borderRadius: 4,
-              }}
-            />
+          <div
+            style={{
+              background: '#eee',
+              borderRadius: 4,
+              height: 8,
+              marginTop: 4,
+              display: 'flex',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ width: `${spentPct}%`, background: '#0a7d33', height: 8 }} />
+            <div style={{ width: `${reservedPct}%`, background: '#b06f00', height: 8 }} />
           </div>
+          {reservedMinor > 0 && (
+            <div style={{ fontSize: '0.8rem', color: '#b06f00', marginTop: 2 }}>
+              reserved means parked by a pending shell, not spent - it flows back if the purchase
+              does not complete
+            </div>
+          )}
         </div>
         <div style={{ fontSize: '0.95rem', whiteSpace: 'nowrap' }} title="the molt cycle">
           🐚 shells: <strong>{grown}</strong> grown · <strong>{worn}</strong> worn ·{' '}

@@ -216,6 +216,18 @@ try {
     'held event carries items_summary for the step-up page',
   );
 
+  // the held mandate parks its amount: the detail page must show it as
+  // reserved, distinct from spent
+  const heldPage = await (
+    await fetch(`${BASE}/dashboard/tabs/${tabId}`, { headers: { cookie } })
+  ).text();
+  ok(
+    /reserved <strong[^>]*>9\.00 EUR/.test(heldPage) ||
+      heldPage.includes('reserved <strong>9.00 EUR'),
+    'reserved amount shown separately from spent',
+  );
+  ok(heldPage.includes('parked by a pending shell'), 'reservation explained in plain words');
+
   // --- tier entitlement (OT-120): free = one active hosted tab -----------------
   const capped = await fetch(`${BASE}/api/tabs/ceremony/verify`, {
     method: 'POST',
