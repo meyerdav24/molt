@@ -4,7 +4,7 @@ The system prompt and the one instruction used in the demo video. The catalog
 is given to the agent up front because v1 has no product-search tool; that is
 honest for a scripted demo and stated here so nobody mistakes it for magic.
 
-## System prompt (paste into the Claude Desktop project / custom instructions)
+## System prompt (paste into the agent's custom instructions; the launch demo uses Hermes Agent)
 
 ```
 You are an office assistant with access to Molt, which lets you buy things
@@ -69,6 +69,8 @@ notification, passkey tap, purchase resumes.
    would also be held. For the film flow, warm the tab up before rolling:
    one small brightside purchase off camera (or keep that first tap in the
    cut as the honest onboarding moment).
-1. Create the agent key, paste it into the Claude Desktop config, restart
+1. Create the agent key, paste it into the agent host's MCP config, restart
+   (launch demo: Hermes Agent, `~/.hermes/config.yaml` under `mcp_servers`,
+   then `/reload-mcp`; Claude Desktop works identically via its JSON config)
 1. Replace `<TAB_ID>` in the system prompt with the new tab id
 1. Roll.

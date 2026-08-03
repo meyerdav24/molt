@@ -46,9 +46,22 @@ Full docs (quickstart, MCP setup, API reference, rendered spec, FAQ) are served 
 
 ## Connect an agent (MCP)
 
-The MCP server exposes four tools: `open_tab`, `resolve_merchant`, `purchase`, `get_receipts`. Opening a tab always happens in the browser with your passkey; the agent only ever receives the ceremony URL.
+The MCP server exposes four tools: `open_tab`, `resolve_merchant`, `purchase`, `get_receipts`. Opening a tab always happens in the browser with your passkey; the agent only ever receives the ceremony URL. Any MCP client works; two examples:
 
-Claude Desktop config (`claude_desktop_config.json`):
+Hermes Agent (`~/.hermes/config.yaml`):
+
+```yaml
+mcp_servers:
+  molt:
+    command: 'node'
+    args: ['/path/to/molt/apps/mcp-server/dist/index.js']
+    env:
+      MOLT_API_URL: 'https://moltprotocol.dev'
+      MOLT_AGENT_KEY: 'molt_sk_test_...'
+      MOLT_SHIPPING_PROFILE: '{"email":"you@example.com","first_name":"Ada","last_name":"Lovelace","address1":"Teststr. 1","city":"Munich","zip":"80331","country_code":"DE"}'
+```
+
+Claude Desktop (`claude_desktop_config.json`):
 
 ```json
 {
@@ -57,7 +70,7 @@ Claude Desktop config (`claude_desktop_config.json`):
       "command": "node",
       "args": ["/path/to/molt/apps/mcp-server/dist/index.js"],
       "env": {
-        "MOLT_API_URL": "http://localhost:3000",
+        "MOLT_API_URL": "https://moltprotocol.dev",
         "MOLT_AGENT_KEY": "molt_sk_test_...",
         "MOLT_SHIPPING_PROFILE": "{\"email\":\"you@example.com\",\"first_name\":\"Ada\",\"last_name\":\"Lovelace\",\"address1\":\"Teststr. 1\",\"city\":\"Munich\",\"zip\":\"80331\",\"country_code\":\"DE\"}"
       }

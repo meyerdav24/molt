@@ -19,6 +19,19 @@ export default function McpDocs() {
       </p>
 
       <h2 style={{ fontSize: '1.1rem' }}>Configuration</h2>
+      <p>
+        Any MCP client works. Hermes Agent (<code>~/.hermes/config.yaml</code>, then{' '}
+        <code>/reload-mcp</code>):
+      </p>
+      <pre style={pre}>{`mcp_servers:
+  molt:
+    command: "node"
+    args: ["/path/to/molt/apps/mcp-server/dist/index.js"]
+    env:
+      MOLT_API_URL: "https://moltprotocol.dev"
+      MOLT_AGENT_KEY: "molt_sk_test_..."
+      MOLT_SHIPPING_PROFILE: '{"email":"you@example.com","first_name":"Ada","last_name":"Lovelace","address1":"Teststr. 1","city":"Munich","zip":"80331","country_code":"DE"}'`}</pre>
+      <p>Claude Desktop (claude_desktop_config.json):</p>
       <pre style={pre}>{`{
   "mcpServers": {
     "molt": {
