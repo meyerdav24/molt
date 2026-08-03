@@ -114,6 +114,21 @@ function refuse(reason: string, message: string, detail?: unknown): PurchaseOutc
   return { status: 'refused', reason, message, ...(detail !== undefined ? { detail } : {}) };
 }
 
+/**
+ * A dead tab teaches at the point of failure (works for every MCP client,
+ * with or without a custom system prompt): the agent learns what happened
+ * and that this molt entry is now dead weight it may clean up itself.
+ */
+function tabDead(status: string | undefined): PurchaseOutcome {
+  const st = status ?? 'inactive';
+  return refuse(
+    'tab_not_active',
+    `this tab is ${st}: no purchases can ever run on it again and this agent key answers nothing useful anymore. ` +
+      `Tell the user. If you manage your own MCP configuration, offer to remove this molt server entry; ` +
+      `a new tab (open_tab) comes with a new key.`,
+  );
+}
+
 /** Cancel the mandate so the card dies and the budget flows back. */
 async function shedShell(ta: TaClient, mandateId: string): Promise<boolean> {
   try {
@@ -281,6 +296,9 @@ export async function purchase(
       };
     }
     if (mint.status !== 201 || !mint.body.mandate_id) {
+      if (mint.body.error === 'tab_not_active') {
+        return tabDead((mint.body as { status?: string }).status);
+      }
       return refuse(
         mint.body.error ?? `mint_failed_${mint.status}`,
         `the Tab Authority refused the child mandate (${mint.status})`,
@@ -537,6 +555,9 @@ async function purchaseL0(
       };
     }
     if (mint.status !== 201 || !mint.body.mandate_id) {
+      if (mint.body.error === 'tab_not_active') {
+        return tabDead((mint.body as { status?: string }).status);
+      }
       return refuse(
         mint.body.error ?? `mint_failed_${mint.status}`,
         `the Tab Authority refused the child mandate (${mint.status})`,
