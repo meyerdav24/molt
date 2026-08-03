@@ -55,6 +55,20 @@ polite backoff, nothing minted, nothing charged.
      from reserved (amber bar segment plus a plain-words explainer that
      a parked amount flows back if the purchase does not complete).
 
+10. **Dev-store bot protection escalates per endpoint and does not forget.**
+    After a day of automation (~30 checkouts plus rehearsals), brightside
+    kept answering the storefront cart endpoints with challenges while its
+    homepage looked perfectly healthy - so a homepage probe is not a
+    readiness check. Everything else behaved correctly throughout: the
+    commit pass failed structured, the shell was shed, the card died and
+    the budget came back in full.
+
+    **Mitigation for film day (do this, it is the single biggest risk to a
+    shoot):** create the demo stores fresh shortly before filming (a new
+    development store is about ten minutes) or leave at least a night of
+    quiet between heavy rehearsal and the shoot, and keep a second store
+    ready as the backup take target. Space takes minutes apart.
+
 ## Timings (healthy store, per stage)
 
 reset 0.5s · seed 0.6s · purchase 20-30s (2 browser passes + mint + receipt;
