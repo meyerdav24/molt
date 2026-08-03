@@ -30,7 +30,7 @@ export default function Home() {
       <p>
         <a href="/docs/quickstart">Self-host in 10 minutes</a> ·{' '}
         <a href="https://github.com/meyerdav24/molt">GitHub</a> · <a href="/docs">Docs</a> ·{' '}
-        <a href="/docs/spec">Spec</a>
+        <a href="/docs/spec">Spec</a> · <a href="/login">Sign in</a>
       </p>
 
       {/* OT-097: the 90-second demo video embeds here once it exists.
