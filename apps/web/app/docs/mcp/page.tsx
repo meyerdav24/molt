@@ -104,6 +104,24 @@ export default function McpDocs() {
         </li>
       </ul>
 
+      <h2 style={{ fontSize: '1.1rem' }}>Key lifecycle, plainly</h2>
+      <ul>
+        <li>
+          One key belongs to exactly one tab and inherits its limits; that is the blast-radius
+          model, not an inconvenience. Several tabs mean several molt entries in your config, each
+          with its own key.
+        </li>
+        <li>
+          Nothing about expiry lives in your config. When a tab expires or is revoked, the key
+          simply starts answering <code>tab_not_active</code>; your agent reports it and you remove
+          the entry (or ask the agent to).
+        </li>
+        <li>
+          Creating a new key for a tab kills the previous one immediately. Lost keys are not
+          recoverable, only replaceable.
+        </li>
+      </ul>
+
       <h2 style={{ fontSize: '1.1rem' }}>Recommended agent instructions</h2>
       <p>
         The tool descriptions already teach the mechanics; these standing instructions make any
