@@ -4,7 +4,8 @@
 
 Email `security@moltprotocol.dev`. No bug bounty in the beta; reports get a
 human answer, credit if you want it, and a fix before disclosure where the
-finding warrants it. The threat model lives in [SPEC.md](SPEC.md) section 6;
+finding warrants it. Hostile reads of the codebase and this checklist are
+explicitly welcome. The threat model lives in [SPEC.md](SPEC.md) section 6;
 if you break one of its claims, that is exactly the mail we want.
 
 ## Security pass (OT-101, 2026-08-02)
@@ -60,6 +61,3 @@ anyone can re-run them.
       trigram-level grep of the full public history against the private
       planning text found only shared protocol vocabulary, no planning
       content.
-- [ ] **External hostile review.** A 2-hour review by an external
-      technical reader is scheduled before launch (tracked in the
-      private TODO list).
