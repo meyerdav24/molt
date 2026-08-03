@@ -33,6 +33,29 @@ polite backoff, nothing minted, nothing charged.
 5. **Dry-run script crashed instead of failing cleanly** when a purchase
    returned no receipt. Fixed: guarded, reports FAIL and keeps going.
 
+## Rehearsal findings (2026-08-03, live against the hosted beta)
+
+6. **Three MCC-to-Stripe category names were wrong**, so card provisioning
+   failed for the office_electronics category - the exact path a real
+   ceremony takes. Every integration test had seeded an empty allowlist,
+   so it was never exercised. Fixed and validated against the live API;
+   the e2e seed now carries the real MCCs.
+7. **Gmail clipped the step-up email**: the trigger reason and deny
+   guidance were byte-identical across mails and disappeared behind
+   "trimmed content". Action button now leads, closing lines carry
+   per-mail data, plain-text part added.
+8. **A purchase was silent for minutes.** The MCP server now emits
+   progress notifications for every stage (logging fallback).
+9. **Open UX debt, not yet fixed:**
+   - _Agent key per tab means editing a config file in a terminal._ The
+     one-key-one-tab rule is the security model and stays, but the
+     delivery is hostile to newcomers. Worth exploring: a copy-paste
+     block that includes the whole MCP config, or a short-lived pairing
+     code the agent host can redeem.
+   - _Reserved budget is invisible._ A held or approved mandate parks its
+     amount, and the dashboard shows only the reduced "remaining" with no
+     hint that the difference is a reservation, not a spend.
+
 ## Timings (healthy store, per stage)
 
 reset 0.5s · seed 0.6s · purchase 20-30s (2 browser passes + mint + receipt;
