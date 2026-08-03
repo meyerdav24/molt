@@ -14,6 +14,13 @@ export default tseslint.config(
     },
   },
   {
+    // k6 load scripts run inside k6's runtime, not node.
+    files: ['scripts/load/**/*.js'],
+    languageOptions: {
+      globals: { __ENV: 'readonly', __ITER: 'readonly' },
+    },
+  },
+  {
     // Plain-node test/tooling scripts: node globals, console allowed.
     files: ['scripts/**/*.mjs', 'demo/**/*.mjs'],
     languageOptions: {

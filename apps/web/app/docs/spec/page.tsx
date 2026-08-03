@@ -4,11 +4,11 @@ import { marked } from 'marked';
 
 export const metadata = { title: 'Protocol spec - Molt' };
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 /**
- * Renders SPEC.md, the protocol document, at request time. The repo root
- * copy is the single source of truth; docker copies it into the image.
+ * Renders SPEC.md, the protocol document. Statically generated at build
+ * time (OT-102: an HN hug hits cached HTML, not a per-request markdown
+ * parse); the repo root copy is the single source of truth.
  */
 async function loadSpec(): Promise<string | null> {
   const candidates = [

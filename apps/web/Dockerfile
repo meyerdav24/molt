@@ -3,6 +3,8 @@ FROM node:22-slim AS build
 RUN corepack enable
 WORKDIR /repo
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
+# /docs/spec is statically generated at build time from the repo-root spec
+COPY SPEC.md ./SPEC.md
 COPY packages ./packages
 COPY apps/web ./apps/web
 RUN pnpm install --frozen-lockfile --filter @molt/web... \

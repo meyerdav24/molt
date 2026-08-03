@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { appendAudit } from './audit.js';
 import { loadConfig, type MoltConfig } from './config.js';
 import { purchase } from './purchase.js';
+import { BoundedQueue, QueueFullError } from './queue.js';
 import { checkRate } from './ratelimit.js';
 import { loadOrCreateSigningKey, type AgentSigningKey } from './signing.js';
 import { TaClient, TaError } from './ta.js';
@@ -26,6 +27,9 @@ import { TaClient, TaError } from './ta.js';
 export const MCP_TOOL_NAMES = ['open_tab', 'resolve_merchant', 'purchase', 'get_receipts'] as const;
 
 const UUID = z.string().uuid();
+
+// OT-102: one browser per purchase, strictly serialized, short honest line.
+const purchaseQueue = new BoundedQueue(1, 3);
 
 function textResult(payload: unknown, isError = false) {
   return {
@@ -199,7 +203,22 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         );
       }
       assertHttpUrl(input.merchant_url);
-      const outcome = await purchase(cfg, ta, signingKey, input);
+      let outcome;
+      try {
+        outcome = await purchaseQueue.run(() => purchase(cfg, ta, signingKey, input));
+      } catch (e) {
+        if (e instanceof QueueFullError) {
+          return textResult(
+            {
+              error: 'busy',
+              waiting: e.waiting,
+              message: `purchase queue is full (${e.waiting} waiting; one browser runs at a time). Retry in a minute.`,
+            },
+            true,
+          );
+        }
+        throw e;
+      }
       const isError = outcome.status === 'refused' || outcome.status === 'failed';
       return textResult(outcome, isError);
     }),

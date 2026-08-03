@@ -43,7 +43,8 @@ anyone can re-run them.
       via override to >=8.5.12. Remaining findings are Next.js 14
       advisories whose fixes ship only in Next 15 (DoS via image
       optimizer remotePatterns: not used; RSC deserialization DoS: no
-      server actions; middleware cache poisoning: no middleware).
+      server actions; middleware cache poisoning: the only middleware is
+      the OT-102 rate limiter, which never redirects or rewrites).
       Accepted for the test-mode beta behind Vercel's edge; the Next 15
       migration is scheduled post-launch.
 - [x] **WebAuthn challenge uniqueness.** Login/registration challenges are
