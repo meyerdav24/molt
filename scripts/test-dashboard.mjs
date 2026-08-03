@@ -216,6 +216,28 @@ try {
     'held event carries items_summary for the step-up page',
   );
 
+  // --- tier entitlement (OT-120): free = one active hosted tab -----------------
+  const capped = await fetch(`${BASE}/api/tabs/ceremony/verify`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  ok(
+    capped.status === 403 && (await capped.json()).error === 'tier_limit',
+    'free tier with an active tab hits the tab cap',
+  );
+  await sql`update users set tier = 'hosted_dev' where id = ${userId}`;
+  const uncapped = await fetch(`${BASE}/api/tabs/ceremony/verify`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  ok(
+    uncapped.status !== 403,
+    'hosted_dev tier passes the cap (fails later on the ceremony itself)',
+  );
+  await sql`update users set tier = 'free' where id = ${userId}`;
+
   // --- GDPR deletion (OT-082): the cascade that actually cascades -------------
   const eventIds = (await sql`select id from events where user_id = ${userId}`).map((r) => r.id);
   ok(eventIds.length > 0, 'events exist before deletion');

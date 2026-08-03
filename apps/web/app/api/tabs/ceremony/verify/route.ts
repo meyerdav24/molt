@@ -22,6 +22,27 @@ export async function POST(req: Request) {
   const userId = await getSessionUserId();
   if (!userId) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
+  // OT-120 entitlement: the free tier gets one active hosted tab. Enforced
+  // before anything else so the refusal is clean and the ceremony cookie
+  // stays untouched.
+  const sqlEarly = db();
+  const [account] = await sqlEarly<{ tier: string }[]>`
+    select tier from users where id = ${userId}`;
+  if (account?.tier === 'free') {
+    const [activeTabs] = await sqlEarly<{ n: number }[]>`
+      select count(*)::int as n from tabs where user_id = ${userId} and status = 'active'`;
+    if ((activeTabs?.n ?? 0) >= 1) {
+      return NextResponse.json(
+        {
+          error: 'tier_limit',
+          detail: 'the free tier includes one active hosted tab; revoke it or upgrade',
+          pricing: '/pricing',
+        },
+        { status: 403 },
+      );
+    }
+  }
+
   const response = (await req.json().catch(() => null)) as AuthenticationResponseJSON | null;
   if (!response?.id) return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
 

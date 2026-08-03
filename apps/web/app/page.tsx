@@ -108,8 +108,11 @@ export default function Home() {
         <WaitlistForm />
       </section>
 
-      {/* OT-120: a single quiet pricing link renders here once its three-line
-          block exists. */}
+      <p style={{ marginTop: '2.5rem', fontSize: '0.9rem' }}>
+        <a href="/pricing" style={{ color: '#666' }}>
+          Pricing
+        </a>
+      </p>
     </main>
   );
 }
