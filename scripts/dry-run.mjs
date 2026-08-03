@@ -161,7 +161,7 @@ const transport = new StdioClientTransport({
     MOLT_STOREFRONT_PASSWORDS: `${brightHost}|${brightPw},${harborHost}|${harborPw}`,
     MOLT_BOGUS_GATEWAY_HOSTS: `${brightHost},${harborHost}`,
     MOLT_SHIPPING_PROFILE: JSON.stringify({
-      email: 'david.meyer.student@gmail.com',
+      email: 'demo@moltprotocol.dev',
       first_name: 'Molt',
       last_name: 'Demo',
       address1: 'Teststr. 1',

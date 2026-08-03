@@ -41,7 +41,7 @@ function buildRequest(store) {
     storefront_password: store.password,
     items: [{ variant_id: item.variant_id, quantity: 1 }],
     shipping: {
-      email: 'david.meyer.student@gmail.com',
+      email: 'demo@moltprotocol.dev',
       first_name: 'Molt',
       last_name: 'Demo',
       address1: 'Teststr. 1',
