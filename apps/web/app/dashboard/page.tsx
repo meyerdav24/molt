@@ -4,8 +4,6 @@ import { db } from '../../lib/db';
 import { getSessionUserId } from '../../lib/session';
 import { DeleteAccountButton } from './delete-account-button';
 import { LogoutButton } from './logout-button';
-import { KeyButton } from './key-button';
-import { RevokeButton } from './revoke-button';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -71,9 +69,10 @@ export default async function DashboardPage() {
                 <td>{new Date(t.expires_at).toLocaleDateString()}</td>
                 <td>
                   {t.status === 'active' && (
-                    <>
-                      <KeyButton tabId={t.id} /> <RevokeButton tabId={t.id} />
-                    </>
+                    // The agent key is shown once and is 60+ characters: it needs
+                    // room, so the list links to the detail page instead of
+                    // rendering it inside a narrow cell.
+                    <Link href={`/dashboard/tabs/${t.id}`}>manage</Link>
                   )}
                 </td>
               </tr>
