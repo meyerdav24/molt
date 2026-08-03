@@ -97,17 +97,20 @@ before(async () => {
     },
     stdio: 'pipe',
   });
-  // wait for the seller to answer
-  for (let i = 0; i < 50; i++) {
+  let childErr = '';
+  seller.stderr?.on('data', (c) => (childErr += c));
+  // wait for the seller to answer (CI runners cold-start slowly)
+  for (let i = 0; i < 150; i++) {
     try {
       const res = await fetch(`http://127.0.0.1:${SELLER_PORT}/health`);
       if (res.ok) return;
     } catch {
       // not up yet
     }
+    if (seller.exitCode !== null) break;
     await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error('seller did not come up');
+  throw new Error(`seller did not come up (exit ${seller.exitCode}): ${childErr.slice(0, 400)}`);
 });
 
 after(() => {
