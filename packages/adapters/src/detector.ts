@@ -3,7 +3,7 @@
  * recommend a ladder rung. All probing traffic carries the honest Molt UA.
  *
  * v1: Shopify detection is real (headers, cookies, cart.js, body markers),
- * x402 probing is real but basic (HTTP 402 envelope; OT-111 refines it),
+ * x402 probing is real (HTTP 402 + parsed payment-requirements envelope),
  * ACP/UCP probes are deliberate stubs returning not_found.
  */
 import type { LadderRung } from '@molt/protocol';
@@ -80,6 +80,13 @@ export async function resolveMerchant(
 
   // x402: a 402 on the origin itself is the strongest possible signal.
   if (home && home.status === 402) signals.push('x402:402-on-origin');
+
+  // paid endpoints often live on a path; probe the exact URL too (OT-111)
+  const path = new URL(url).pathname;
+  if (!signals.some((s) => s.startsWith('x402')) && path !== '/' && path !== '') {
+    const exact = await probe(url, timeoutMs);
+    if (exact && exact.status === 402) signals.push('x402:402-on-path');
+  }
 
   if (home) {
     signals.push(...shopifySignals(home));

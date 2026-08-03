@@ -155,9 +155,11 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
     {
       title: 'Purchase with a fresh shell',
       description:
-        'Buy the given items at a merchant, within the limits of the tab. Molt quotes the real ' +
-        'checkout total first (no card involved), then requests a single-use child mandate scoped ' +
-        'to exactly that cart, gets a disposable card, checks out, and files a dual-signed receipt. ' +
+        'Buy at a merchant, within the limits of the tab. Stores (Shopify): pass items; Molt quotes ' +
+        'the real checkout total first (no card involved), mints a single-use child mandate scoped ' +
+        'to exactly that cart, gets a disposable card, checks out, files a dual-signed receipt. ' +
+        'x402 paid endpoints: omit items; Molt reads the 402 terms, mints a mandate for exactly ' +
+        'that amount, pays testnet USDC from the local wallet, files the receipt with the tx hash. ' +
         'Possible non-purchase outcomes you must handle: step_up_pending (the user must approve via ' +
         'the emailed Tap link; retry later with mandate_id), handoff_l3 (give the deep link to the ' +
         'human), refused (the Tab Authority said no; do not retry the same request), already_purchased ' +
@@ -175,7 +177,9 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
             }),
           )
           .min(1)
-          .max(20),
+          .max(20)
+          .optional()
+          .describe('cart lines for store checkouts; omit for x402 paid endpoints'),
         max_amount_minor: z
           .number()
           .int()

@@ -35,8 +35,10 @@ export default function McpDocs() {
       <p>
         Optional: <code>MOLT_STOREFRONT_PASSWORDS</code> (host|password pairs for password-protected
         dev stores), <code>MOLT_BOGUS_GATEWAY_HOSTS</code>, <code>MOLT_EVIDENCE_DIR</code>,{' '}
-        <code>MOLT_CHECKOUT_TIMEOUT_MS</code>, <code>MOLT_AUDIT_LOG_PATH</code>. The agent key is
-        scoped to one tab; the key prefix is enforced to be a test key at boot.
+        <code>MOLT_CHECKOUT_TIMEOUT_MS</code>, <code>MOLT_AUDIT_LOG_PATH</code>;{' '}
+        <code>MOLT_WALLET_PATH</code> + <code>MOLT_WALLET_PASSPHRASE</code> for the x402 rung (see{' '}
+        <a href="/docs/wallet">agent wallet</a>). The agent key is scoped to one tab; the key prefix
+        is enforced to be a test key at boot.
       </p>
 
       <h2 style={{ fontSize: '1.1rem' }}>The four tools</h2>

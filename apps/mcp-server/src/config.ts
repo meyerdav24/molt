@@ -16,6 +16,10 @@
  *   MOLT_HEADED                  set to 1 to run checkouts headed (debugging)
  *   MOLT_AUDIT_LOG_PATH          JSONL audit log, one line per tool call
  *                                (default ~/.molt/audit.jsonl)
+ *   MOLT_WALLET_PATH             encrypted agent wallet keystore for the x402
+ *                                rung (default ~/.molt/wallet.json)
+ *   MOLT_WALLET_PASSPHRASE       passphrase for the keystore; without it the
+ *                                L0 rung reports itself unavailable
  *   MOLT_CHECKOUT_TIMEOUT_MS     hard wall clock per browser pass
  *                                (default 120000, clamped to 10s..600s)
  *   MOLT_BOGUS_GATEWAY_HOSTS     comma-separated dev-store hosts whose checkout
@@ -39,6 +43,8 @@ export interface MoltConfig {
   signingKeyPath: string;
   evidenceDir: string;
   auditLogPath: string;
+  walletPath: string;
+  walletPassphrase: string | undefined;
   checkoutTimeoutMs: number;
   headed: boolean;
 }
@@ -93,6 +99,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MoltConfig {
     signingKeyPath: env.MOLT_AGENT_SIGNING_KEY_PATH ?? join(moltHome, 'agent-signing-key.pem'),
     evidenceDir: env.MOLT_EVIDENCE_DIR ?? join(moltHome, 'evidence'),
     auditLogPath: env.MOLT_AUDIT_LOG_PATH ?? join(moltHome, 'audit.jsonl'),
+    walletPath: env.MOLT_WALLET_PATH ?? join(moltHome, 'wallet.json'),
+    walletPassphrase: env.MOLT_WALLET_PASSPHRASE,
     checkoutTimeoutMs: Math.min(
       600_000,
       Math.max(10_000, Number(env.MOLT_CHECKOUT_TIMEOUT_MS ?? 120_000) || 120_000),

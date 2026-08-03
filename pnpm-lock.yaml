@@ -32,12 +32,18 @@ importers:
         specifier: workspace:*
         version: link:../../packages/protocol
     devDependencies:
+      '@molt/adapters':
+        specifier: workspace:^
+        version: link:../../packages/adapters
       '@types/node':
         specifier: ^22.5.0
         version: 22.20.1
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
+      viem:
+        specifier: ^2.55.10
+        version: 2.55.10(typescript@5.9.3)(zod@4.4.3)
 
   apps/mcp-server:
     dependencies:

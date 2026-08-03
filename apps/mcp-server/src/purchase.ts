@@ -13,8 +13,12 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import {
+  ALLOWED_NETWORK,
   cartHash,
   deriveIdempotencyKey,
+  fetchWithX402,
+  loadWallet,
+  parseEnvelope,
   preflightValidate,
   resolveMerchant,
   shopifyCheckout,
@@ -23,6 +27,7 @@ import {
   type NormalizedCart,
 } from '@molt/adapters';
 import {
+  sha256CanonicalHex,
   signReceiptAsAgent,
   type MandateBounds,
   type ReceiptBody,
@@ -35,7 +40,8 @@ import { TaClient } from './ta.js';
 export interface PurchaseInput {
   tab_id: string;
   merchant_url: string;
-  items: { variant_id: number; quantity: number }[];
+  /** Cart lines for store checkouts; irrelevant for x402 paid endpoints. */
+  items?: { variant_id: number; quantity: number }[] | undefined;
   max_amount_minor: number;
   reason: string;
   /** Resume a held purchase after the user approved it via the Tap. */
@@ -126,18 +132,21 @@ export async function purchase(
 ): Promise<PurchaseOutcome> {
   // --- rung selection -------------------------------------------------------
   const detection = await resolveMerchant(input.merchant_url);
+  if (detection.platform === 'x402') {
+    return purchaseL0(cfg, ta, signingKey, input, detection);
+  }
   if (detection.platform !== 'shopify') {
-    const why =
-      detection.platform === 'x402'
-        ? 'merchant speaks x402, and the x402 rail is not wired into purchase yet (Epic 11)'
-        : 'no supported checkout protocol detected';
     return {
       status: 'handoff_l3',
       deep_link: input.merchant_url,
       detection,
-      message: `L3 handoff: ${why}. Give the human this link to buy it themselves: ${input.merchant_url}`,
+      message: `L3 handoff: no supported checkout protocol detected. Give the human this link to buy it themselves: ${input.merchant_url}`,
     };
   }
+  if (!input.items || input.items.length === 0) {
+    return refuse('items_required', 'this merchant is a store; pass items (variant_id, quantity)');
+  }
+  const items = input.items;
   if (!cfg.shipping) {
     return refuse(
       'shipping_profile_missing',
@@ -153,7 +162,7 @@ export async function purchase(
     ...(cfg.storefrontPasswords.has(host)
       ? { storefront_password: cfg.storefrontPasswords.get(host) as string }
       : {}),
-    items: input.items,
+    items,
     shipping: cfg.shipping,
     session_state_path: sessionStatePath,
     headed: cfg.headed,
@@ -371,5 +380,245 @@ export async function purchase(
     receipt: filed.body.receipt,
     order_confirmation: result.order_confirmation,
     message: `purchased at ${origin} for ${result.total_minor} ${cart.currency} minor units, rung L1. Receipt ${filed.body.receipt.id} is dual-signed and verifiable via 'molt verify'.`,
+  };
+}
+
+/**
+ * The L0 rung (OT-111): pay an x402 endpoint with testnet USDC from the
+ * operator's local wallet. Mandate bounds are enforced CLIENT-SIDE before
+ * any signature exists: the endpoint origin must equal the mandate's
+ * merchant scope, and the signing cap is exactly the quoted atomic amount
+ * the mandate was minted for.
+ *
+ * Amount mapping, stated plainly: testnet USDC is treated 1:1 with the
+ * tab currency, atomic units (6 dp) ceil-converted to minor units (2 dp).
+ * Play money; the mapping exists so the narrowing engine and budget math
+ * stay authoritative. Each call to a paid API is a distinct consumption,
+ * so the L0 cart hash includes a nonce - the double-spend bound is the
+ * one-shot child mandate itself, not cart identity.
+ */
+async function purchaseL0(
+  cfg: MoltConfig,
+  ta: TaClient,
+  signingKey: AgentSigningKey,
+  input: PurchaseInput,
+  detection: DetectionResult,
+): Promise<PurchaseOutcome> {
+  const origin = new URL(input.merchant_url).origin;
+
+  if (!cfg.walletPassphrase) {
+    return refuse(
+      'wallet_unavailable',
+      'the x402 rung needs the local wallet: set MOLT_WALLET_PASSPHRASE (and MOLT_WALLET_PATH if not ~/.molt/wallet.json)',
+    );
+  }
+  let account;
+  try {
+    account = loadWallet(cfg.walletPath, cfg.walletPassphrase);
+  } catch (e) {
+    return refuse('wallet_unavailable', e instanceof Error ? e.message : 'wallet load failed');
+  }
+
+  // --- probe: read the terms, no payment involved ---------------------------
+  let probeBody = '';
+  let probeStatus = 0;
+  try {
+    const probe = await fetch(input.merchant_url, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    probeStatus = probe.status;
+    probeBody = await probe.text();
+  } catch {
+    return {
+      status: 'failed',
+      stage: 'l0_probe',
+      reason: 'endpoint_unreachable',
+      detail: `no response from ${input.merchant_url}`,
+      shell_shed: false,
+      message: 'the x402 endpoint did not answer; nothing was minted or signed',
+    };
+  }
+  if (probeStatus !== 402) {
+    return refuse(
+      'no_payment_required',
+      `endpoint answered ${probeStatus}, not 402; nothing to pay`,
+    );
+  }
+  const envelope = parseEnvelope(probeBody);
+  const terms = envelope?.accepts.find(
+    (a) => a.scheme === 'exact' && a.network === ALLOWED_NETWORK,
+  );
+  if (!terms) {
+    return refuse(
+      'no_acceptable_terms',
+      `endpoint offers no "exact" terms on ${ALLOWED_NETWORK}; test mode pays nothing else`,
+    );
+  }
+
+  const atomic = BigInt(terms.maxAmountRequired);
+  const cents = Number((atomic + 9_999n) / 10_000n);
+  if (cents > input.max_amount_minor) {
+    return refuse(
+      'quote_exceeds_max_amount',
+      `endpoint asks ${terms.maxAmountRequired} atomic units (~${cents} minor) but max_amount_minor is ${input.max_amount_minor}; nothing was minted`,
+    );
+  }
+
+  // --- child mandate --------------------------------------------------------
+  let mandateId: string;
+  let parentId: string | undefined;
+  let bounds: MandateBounds | undefined;
+
+  if (input.mandate_id) {
+    const poll = await ta.call<MandatePoll>('GET', `/v1/mandates/${input.mandate_id}`);
+    if (poll.status !== 200) {
+      return refuse('mandate_not_found', `mandate ${input.mandate_id} not found on this tab`);
+    }
+    if (poll.body.status === 'held') {
+      return {
+        status: 'step_up_pending',
+        mandate_id: input.mandate_id,
+        message:
+          'still waiting for the user: approval was requested via email (the Tap). Try again after they approve.',
+      };
+    }
+    if (poll.body.status !== 'active' && poll.body.status !== 'approved') {
+      return refuse(
+        `mandate_${poll.body.status ?? 'unusable'}`,
+        `mandate ${input.mandate_id} is ${poll.body.status}; start a fresh purchase`,
+      );
+    }
+    mandateId = input.mandate_id;
+    parentId = poll.body.parent_id;
+    bounds = poll.body.bounds;
+  } else {
+    const hash = sha256CanonicalHex({
+      resource: terms.resource ?? input.merchant_url,
+      amount_atomic: atomic.toString(),
+      nonce: randomUUID(),
+    });
+    const mint = await ta.call<MintResponse>('POST', `/v1/tabs/${input.tab_id}/mandates`, {
+      merchant_origin: origin,
+      amount_minor: cents,
+      cart_hash: hash,
+      reason: input.reason,
+      items_summary: [terms.description ?? `x402 paid request to ${origin}`],
+    });
+    if (mint.status === 202 && mint.body.mandate_id) {
+      return {
+        status: 'step_up_pending',
+        mandate_id: mint.body.mandate_id,
+        triggers: mint.body.triggers,
+        message:
+          `user approval requested via email (the Tap). Nothing was signed or paid. ` +
+          `Once approved, call purchase again with the same arguments plus mandate_id="${mint.body.mandate_id}".`,
+      };
+    }
+    if (mint.status !== 201 || !mint.body.mandate_id) {
+      return refuse(
+        mint.body.error ?? `mint_failed_${mint.status}`,
+        `the Tab Authority refused the child mandate (${mint.status})`,
+        mint.body.violations ?? mint.body,
+      );
+    }
+    mandateId = mint.body.mandate_id;
+    parentId = mint.body.parent_id;
+    bounds = mint.body.bounds;
+  }
+
+  if (!bounds || !parentId) {
+    return refuse('mandate_incomplete', 'the TA response was missing bounds or parent_id');
+  }
+
+  // --- client-side enforcement BEFORE any signature (OT-111 AC) -------------
+  if (bounds.merchant_scope !== origin) {
+    const shed = await shedShell(ta, mandateId);
+    return refuse(
+      'merchant_outside_mandate_scope',
+      `endpoint origin ${origin} != mandate scope ${bounds.merchant_scope}; shell ${shed ? 'shed' : 'expiring'}`,
+    );
+  }
+  const capAtomic = BigInt(bounds.amount_minor) * 10_000n;
+  if (atomic > capAtomic) {
+    const shed = await shedShell(ta, mandateId);
+    return refuse(
+      'amount_exceeds_mandate',
+      `endpoint asks ${atomic} atomic units, mandate covers ${capAtomic}; refused before signing; shell ${shed ? 'shed' : 'expiring'}`,
+    );
+  }
+
+  // --- pay ------------------------------------------------------------------
+  const result = await fetchWithX402(input.merchant_url, {
+    account,
+    maxAmountMinor: atomic,
+  });
+
+  if (!result.ok) {
+    const shed = await shedShell(ta, mandateId);
+    const fallbackHint = detection.signals.some((s) => s.startsWith('shopify'))
+      ? ' The merchant also looks like a store; re-running purchase with items falls back to L1.'
+      : '';
+    return {
+      status: 'failed',
+      stage: 'l0_payment',
+      reason: result.reason,
+      detail: result.detail,
+      shell_shed: shed,
+      message: `x402 payment failed (${result.reason}); the shell was ${shed ? 'shed, budget refunded' : 'left to its TTL'}. Nothing was charged.${fallbackHint}`,
+    };
+  }
+  if (!result.paid) {
+    const shed = await shedShell(ta, mandateId);
+    return refuse(
+      'no_payment_required',
+      `endpoint stopped asking for payment (answered ${result.status}); shell ${shed ? 'shed' : 'expiring'}, nothing paid`,
+    );
+  }
+
+  // --- receipt --------------------------------------------------------------
+  const idempotencyKey = deriveIdempotencyKey(
+    input.tab_id,
+    origin,
+    sha256CanonicalHex({ tx: result.settlement?.transaction ?? randomUUID() }),
+  );
+  const body: ReceiptBody = {
+    id: randomUUID(),
+    tab_id: input.tab_id,
+    mandate_id: mandateId,
+    rung: 'L0',
+    rail: 'usdc_x402_testnet',
+    merchant: origin,
+    amount_minor: cents,
+    currency: bounds.currency,
+    evidence: {
+      ...(result.settlement?.transaction ? { onchain_tx_hash: result.settlement.transaction } : {}),
+    },
+    idempotency_key: idempotencyKey,
+    mandate_chain: [parentId, mandateId],
+    created_at: new Date().toISOString(),
+  };
+  const filed = await ta
+    .call<{ receipt?: SignedReceipt }>('POST', `/v1/mandates/${mandateId}/receipt`, {
+      receipt: body,
+      agent_signature: signReceiptAsAgent(body, signingKey.privatePem),
+      agent_public_key: signingKey.publicPem,
+    })
+    .catch(() => null);
+
+  if (!filed || filed.status !== 201 || !filed.body.receipt) {
+    return {
+      status: 'purchased_receipt_unfiled',
+      order_confirmation: result.settlement?.transaction ?? 'paid (no settlement hash)',
+      detail: filed ? JSON.stringify(filed.body) : 'ta_unreachable',
+      message:
+        'the x402 payment settled but filing the receipt failed; the on-chain transaction stands. Report this to the user.',
+    };
+  }
+
+  return {
+    status: 'purchased',
+    receipt: filed.body.receipt,
+    order_confirmation: result.settlement?.transaction ?? 'settled',
+    message: `paid ${(Number(atomic) / 1e6).toFixed(2)} testnet USDC at ${origin}, rung L0, settled on ${ALLOWED_NETWORK}. Receipt ${filed.body.receipt.id} is dual-signed and verifiable offline.`,
   };
 }

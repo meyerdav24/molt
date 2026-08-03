@@ -38,6 +38,18 @@ export {
   type PreflightViolation,
 } from './preflight.js';
 export {
+  ALLOWED_NETWORK,
+  fetchWithX402,
+  parseEnvelope,
+  X402_VERSION,
+  type PaymentRequirements,
+  type SettlementInfo,
+  type X402Envelope,
+  type X402FailureReason,
+  type X402Outcome,
+  type X402RequestOptions,
+} from './x402.js';
+export {
   BASE_SEPOLIA_CHAIN_ID,
   BASE_SEPOLIA_USDC,
   DEFAULT_RPC_URL,
