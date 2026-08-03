@@ -6,7 +6,11 @@ The name is the security model. The agent never holds your real card. For every 
 
 You delegate the way you would at a bar: show ID once, open a tab with a limit, and anything unusual gets checked with you.
 
-> **Status: pre-release.** The spec is drafting in [SPEC.md](SPEC.md). Nothing here moves real money: the reference Tab Authority runs exclusively against Stripe test mode and testnet USDC (Base Sepolia). Read [what Molt deliberately does not do](SPEC.md#7-what-molt-deliberately-does-not-do) first; the [threat model](SPEC.md#6-threat-model) states exactly what is and is not guaranteed.
+**The blast radius, up front:** prompt injection is assumed, not hoped away. Every purchase runs on a child mandate that can never exceed the tab you signed, is scoped to one store and one exact cart, and dies after one authorization. A fully compromised agent can spend at most one outstanding shell before anomaly triggers hold everything for your passkey. That claim, and its limits, are written down in the [threat model](SPEC.md#6-threat-model).
+
+<!-- OT-097: the 90-second demo GIF embeds here once it exists. -->
+
+> **Status: test-mode beta.** Live at [moltprotocol.dev](https://moltprotocol.dev), docs at [moltprotocol.dev/docs](https://moltprotocol.dev/docs). Nothing moves real money: the reference Tab Authority runs exclusively against Stripe test mode and testnet USDC (Base Sepolia), and refuses to boot otherwise.
 
 ## The three-party model
 
@@ -28,7 +32,7 @@ The merchant is deliberately not a party. It installs nothing, agrees to nothing
 | `apps/web`          | Reference Tab Authority: dashboard, step-up page, REST API, webhooks, docs     |
 | `apps/mcp-server`   | MCP server exposing the four agent tools                                       |
 | `apps/demo-seller`  | Demo x402 paid API                                                             |
-| `demo/`             | Demo kit: vocabulary, storyboard, seed and reset scripts                       |
+| `demo/`             | Demo kit: vocabulary card, agent prompt, reset script, dry-run findings        |
 | `supabase/`         | Database migrations                                                            |
 
 ## Quickstart
@@ -66,13 +70,24 @@ Setup order: run the web app, ask the agent to `open_tab`, complete the passkey 
 
 Optional variables: `MOLT_STOREFRONT_PASSWORDS` (`host|password,...` for password-protected dev stores), `MOLT_BOGUS_GATEWAY_HOSTS` (dev stores running Shopify's Bogus Gateway, where the simulated acquirer gets its test card while the scoped card stays real), `MOLT_EVIDENCE_DIR`, `MOLT_AGENT_SIGNING_KEY_PATH`. For a remote transport run with `--sse [port]`.
 
+## What Molt deliberately does not do
+
+Design commitments, not roadmap gaps ([full list with reasoning](SPEC.md#7-what-molt-deliberately-does-not-do)):
+
+- No bot-detection evasion. Signed requests, honest user agent; blocked means blocked, reported as such.
+- No funds custody and no payment initiation. The Tab Authority scopes; issuer rails execute.
+- No strong customer authentication, and no claim to it.
+- No crypto custody. Testnet only; keys stay with the agent operator.
+- No post-purchase guarantees. Delivery and refunds stay between you and the store.
+- No ToS dissolution. Your obligations to merchants are unchanged.
+
 ## Disclaimers
 
-- The hosted beta (when it exists) is test-mode only. No real money moves.
+- The hosted beta at moltprotocol.dev is test-mode only. No real money moves.
 - Self-hosters operate their own issuer relationship and are responsible for their own compliance.
 - Molt is technical infrastructure. It never holds funds, never initiates payments, and never performs strong customer authentication.
 - Nothing in this repository is financial or legal advice.
 
 ## License
 
-[Apache 2.0](LICENSE). The spec and reference implementation are Apache 2.0 permanently. See [CONTRIBUTING.md](CONTRIBUTING.md).
+[Apache 2.0](LICENSE). The spec and reference implementation are Apache 2.0 permanently, and the open project will not be relicensed. Once independent implementations exist, spec governance is intended to move to a neutral home. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
