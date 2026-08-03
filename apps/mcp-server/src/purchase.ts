@@ -119,6 +119,17 @@ function refuse(reason: string, message: string, detail?: unknown): PurchaseOutc
  * with or without a custom system prompt): the agent learns what happened
  * and that this molt entry is now dead weight it may clean up itself.
  */
+/** The key itself is dead (rotated or revoked), not the tab. */
+function keyRejected(): PurchaseOutcome {
+  return refuse(
+    'key_rejected',
+    'the configured agent key was rejected by the Tab Authority. Keys are revoked the moment a ' +
+      'new one is created for the same tab, and when a tab is revoked. Ask the human for the ' +
+      "current key from the dashboard, replace MOLT_AGENT_KEY in this server's MCP configuration " +
+      'entry, and restart it.',
+  );
+}
+
 function tabDead(status: string | undefined): PurchaseOutcome {
   const st = status ?? 'inactive';
   return refuse(
@@ -218,6 +229,7 @@ export async function purchase(
     'GET',
     `/v1/tabs/${input.tab_id}/receipts`,
   );
+  if (receipts.status === 401) return keyRejected();
   const dup = receipts.body.receipts?.find((r) => r.idempotency_key === idempotencyKey);
   if (dup) {
     return {
@@ -296,6 +308,7 @@ export async function purchase(
       };
     }
     if (mint.status !== 201 || !mint.body.mandate_id) {
+      if (mint.status === 401) return keyRejected();
       if (mint.body.error === 'tab_not_active') {
         return tabDead((mint.body as { status?: string }).status);
       }
@@ -555,6 +568,7 @@ async function purchaseL0(
       };
     }
     if (mint.status !== 201 || !mint.body.mandate_id) {
+      if (mint.status === 401) return keyRejected();
       if (mint.body.error === 'tab_not_active') {
         return tabDead((mint.body as { status?: string }).status);
       }

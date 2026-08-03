@@ -36,7 +36,8 @@ const UUID = z.string().uuid();
  * chat and any agent knows what to do with it - no system prompt needed.
  */
 const NOT_CONNECTED = [
-  'this server is not connected to a tab yet.',
+  'no agent key is configured for this Molt server, so it is not tied to any tab yet',
+  '(the connection to you works fine; what is missing is the credential).',
   'A tab-scoped agent key looks like molt_sk_test_ followed by 48 hex characters;',
   'the human creates it in the Molt dashboard after the passkey ceremony, and it is shown once.',
   "If they give you one, put it in this server's MOLT_AGENT_KEY environment variable",
@@ -86,6 +87,15 @@ function summarize(result: ToolResult): string {
     return result.isError ? 'error' : 'ok';
   }
 }
+
+/** A configured key that the Tab Authority rejects: almost always rotated
+ *  (creating a new key revokes the old one instantly) or a revoked tab. */
+const KEY_REJECTED = [
+  'the configured agent key was rejected by the Tab Authority.',
+  'Keys are revoked the moment a new one is created for the same tab, and when a tab is revoked.',
+  'Ask the human for the current key from the Molt dashboard, replace MOLT_AGENT_KEY',
+  "in this server's MCP configuration entry, and restart it.",
+].join(' ');
 
 /**
  * OT-041 wrapper around every tool: per-key rate limit in, audit line out,
@@ -305,7 +315,10 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
           true,
         );
       }
-      const res = await ta.call('GET', `/v1/tabs/${tab_id}/receipts`);
+      const res = await ta.call<{ error?: string }>('GET', `/v1/tabs/${tab_id}/receipts`);
+      if (res.status === 401) {
+        return textResult({ error: 'key_rejected', message: KEY_REJECTED }, true);
+      }
       return textResult(res.body, res.status !== 200);
     }),
   );
