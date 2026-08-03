@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Molt mark: a shell mid-molt - an open spiral, shedding its last turn -->
+  <rect width="64" height="64" rx="14" fill="#e8543f"/>
+  <g fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round">
+    <path d="M 32 14
+             A 18 18 0 1 0 50 32
+             A 13 13 0 1 1 37 19
+             A 8 8 0 1 0 29 27"/>
+  </g>
+  <circle cx="29" cy="27" r="3" fill="#ffffff"/>
+</svg>
