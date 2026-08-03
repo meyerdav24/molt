@@ -104,6 +104,15 @@ export default function McpDocs() {
         </li>
       </ul>
 
+      <h2 style={{ fontSize: '1.1rem' }}>Starting without a key works</h2>
+      <p>
+        You can register the server before any tab exists: leave <code>MOLT_AGENT_KEY</code> out
+        entirely. <code>open_tab</code> and <code>resolve_merchant</code> work immediately;
+        <code>purchase</code> answers with instructions instead of failing silently, so the agent
+        itself walks you through the ceremony, and once you hand it the key panel&apos;s config
+        block it completes its own setup. No file editing, no system prompt.
+      </p>
+
       <h2 style={{ fontSize: '1.1rem' }}>Key lifecycle, plainly</h2>
       <ul>
         <li>
