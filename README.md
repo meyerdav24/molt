@@ -37,12 +37,26 @@ The merchant is deliberately not a party. It installs nothing, agrees to nothing
 
 ## Quickstart
 
+You need Docker and a free Stripe account with Issuing enabled in test mode.
+
 ```sh
-cp .env.example .env   # fill in the variables; every one is explained inline
+git clone https://github.com/meyerdav24/molt && cd molt
+cp .env.example .env
 docker compose up
 ```
 
-Full docs (quickstart, MCP setup, API reference, rendered spec, FAQ) are served by the web app under `/docs`.
+`.env.example` lists everything, but only four values are needed to reach a working tab; each is explained inline where it sits:
+
+| Variable                         | What to put there                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `MOLT_SESSION_SECRET`            | any long random string                                                                      |
+| `MOLT_TA_SIGNING_KEY`            | the generator one-liner is in the file                                                      |
+| `STRIPE_API_KEY`                 | a test-mode restricted key (`rk_test_…`) with Issuing cardholders + cards write             |
+| `EMAIL_API_KEY` and `EMAIL_FROM` | a Resend key for step-up mails. Skip it at first; held purchases then wait without an email |
+
+Then register at [localhost:3000/login](http://localhost:3000/login) with a passkey and open a tab. That passkey ceremony is the one human moment in the whole flow; everything after it is the agent.
+
+The build takes under a minute, the images a few minutes to pull, and the rest of the ten is the Stripe account. Step-by-step, including the first purchase and the dev-store caveats: [/docs/quickstart](https://moltprotocol.dev/docs/quickstart). Full docs (MCP setup, API reference, rendered spec, FAQ) live under `/docs`, served by the app itself.
 
 ## Connect an agent (MCP)
 
