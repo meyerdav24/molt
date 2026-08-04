@@ -105,8 +105,8 @@ function summarize(result: ToolResult): string {
 const KEY_REJECTED = [
   'the configured agent key was rejected by the Tab Authority.',
   'Keys are revoked the moment a new one is created for the same tab, and when a tab is revoked.',
-  'Ask the human for the current key from the Molt dashboard, replace MOLT_AGENT_KEY',
-  "in this server's MCP configuration entry, and restart it.",
+  'Ask the human for the current key from the Molt dashboard, then call connect_tab with it -',
+  'that replaces the rejected key immediately, no config editing and no restart.',
 ].join(' ');
 
 /**
