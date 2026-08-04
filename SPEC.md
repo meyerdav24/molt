@@ -77,7 +77,7 @@ Concretely, a TA MUST reject a child mandate unless all of the following hold:
 
 Parent remaining budget MUST be decremented atomically with child creation (a serialized transaction or row lock), such that no concurrent sequence of mints can exceed the root total. A child MUST be scoped to one merchant, one cart hash, one amount.
 
-**The blast-radius claim, stated precisely:** compromise of the agent between step-up events is bounded by the outstanding child mandate(s): a fully compromised agent can spend at most one outstanding child mandate before anomaly triggers fire.
+**The blast-radius claim, stated precisely:** compromise of the agent between step-up events is bounded by the outstanding child mandate(s). A merchant the tab has never paid before fires `unknown_merchant`, so under a `hold_for_tap` policy an agent cannot direct spending anywhere new without a fresh user assertion. At a merchant already on record, the reachable amount is bounded by `per_tx_max_minor` × `velocity_per_hour` and by the root's remaining total, with `amount_above_baseline` holding anything unusual for that tab. Implementations MAY additionally refuse to mint while an unexpired child is outstanding, which reduces the bound to exactly one child mandate; the reference implementation does not yet do this (see `mint_child_mandate`).
 
 ### 4.3 The Ladder
 
@@ -115,7 +115,7 @@ Both rails are test-money only in the reference deployment:
 
 The asset under protection is the user's spending authority. Molt's design goal is not to make agent compromise impossible. It is to make the worst case small, visible, and recoverable. The claim, stated precisely:
 
-> **Compromise of the agent between step-up events is bounded by the outstanding child mandate(s). A fully compromised agent can spend at most one outstanding child mandate before anomaly triggers fire.**
+> **Compromise of the agent between step-up events is bounded by the outstanding child mandate(s). A fully compromised agent cannot direct spending to a merchant the tab has not already paid, and at a merchant already on record it is bounded by the per-transaction cap, the velocity limit, and the remaining root total the user signed.**
 
 This section lists the adversaries the protocol is designed against, what it guarantees for each, and, just as importantly, what it does not.
 

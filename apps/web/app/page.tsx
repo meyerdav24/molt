@@ -69,9 +69,9 @@ export default function Home() {
           passkey approves it, one tap denies it. No approval, no shell.
         </p>
         <p>
-          Worst case, a fully compromised agent gets one shell: one store, one capped amount,
-          already minutes from death. That is the whole security model, and it is{' '}
-          <a href="/docs/spec">written down</a>.
+          Worst case, a fully compromised agent gets a shell at a store you already use: one capped
+          amount, already minutes from death. Somewhere new it gets nothing without your thumb. That
+          is the whole security model, and it is <a href="/docs/spec">written down</a>.
         </p>
         <p>
           Merchants need no integration and see a customer that identifies itself honestly: signed

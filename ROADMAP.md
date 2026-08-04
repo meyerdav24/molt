@@ -562,6 +562,8 @@ Add to `molt-cloud` a one-page commercial policy the team signs off on, and wire
 - **BL-08** Agent registry + Stamp verification endpoint for CDNs/merchants.
 - **BL-09** Hosted live mode: legal memo (TSP classification), issuer contract, pricing page.
 - **BL-10** Accounting export (CSV/DATEV).
+- **BL-11** Single-outstanding-child option in `mint_child_mandate`: refuse to mint while an unexpired child of the same tab is still `pending`/`active`/`held`/`approved`. Today the bound is `per_tx_max × velocity_per_hour` against the remaining total; this collapses it to exactly one child mandate and would let the spec state that flatly. Deliberately not shipped for v1 — it changes the most sensitive function in the system, and it landed as a finding days before launch. Needs its own adversarial tests (stuck-pending self-heals at TTL, held step-up does not deadlock the tab, concurrent mints).
+- **BL-12** Scheduled expiry sweep. Four call sites already say "retried by the sweep" and no sweep exists: expiry is lazy (`expireHeldIfDue` runs on read), so an unused shell's Stripe card can stay `active` until something touches the mandate, and a failed cancellation is never retried. Authorization is already safe — the webhook checks `expires_at` and declines — but the card object should not outlive its mandate.
 
 ---
 

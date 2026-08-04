@@ -7,7 +7,11 @@ The canonical metaphor sentences. Quote these; do not improvise variants. Every 
 - **"A shell is a disposable payment credential sized to one cart."**
 - **"The agent molts after every purchase."**
 - **"No approval, no shell."**
-- **"Worst case, an attacker gets one shell."**
+- **"Worst case, an attacker gets a shell at a store you already use."** (Never
+  the shorter "an attacker gets one shell": nothing in the code limits an
+  outstanding child to one, so that version overclaims. The bound is the
+  per-purchase cap times the velocity limit, and an unknown merchant always
+  waits for the tap.)
 - The shell lifecycle, always in this order and wording: **"grown → worn once → shed."**
 
 ## The two metaphors and where each belongs

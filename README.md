@@ -2,11 +2,11 @@
 
 **An open protocol for delegating bounded, autonomous spending authority to an AI agent, at any online store, including the overwhelming majority that expose no agentic commerce protocol at all.**
 
-The name is the security model. The agent never holds your real card. For every purchase it grows a fresh, disposable **shell**, a single-use scoped payment credential sized exactly to that cart, wears it once, and sheds it. The agent molts after every purchase. Worst case, an attacker gets one shell.
+The name is the security model. The agent never holds your real card. For every purchase it grows a fresh, disposable **shell**, a single-use scoped payment credential sized exactly to that cart, wears it once, and sheds it. The agent molts after every purchase. Worst case, an attacker gets a shell: one store you already use, one capped amount, minutes from expiry.
 
 You delegate the way you would at a bar: show ID once, open a tab with a limit, and anything unusual gets checked with you.
 
-**The blast radius, up front:** prompt injection is assumed, not hoped away. Every purchase runs on a child mandate that can never exceed the tab you signed, is scoped to one store and one exact cart, and dies after one authorization. A fully compromised agent can spend at most one outstanding shell before anomaly triggers hold everything for your passkey. That claim, and its limits, are written down in the [threat model](SPEC.md#6-threat-model).
+**The blast radius, up front:** prompt injection is assumed, not hoped away. Every purchase runs on a child mandate that can never exceed the tab you signed, is scoped to one store and one exact cart, and dies after one authorization. A compromised agent cannot send your money somewhere new: a store the tab has never paid holds for your passkey, so the classic injection, "buy this at attacker.example", never grows a shell. At a store you already use, it is bounded by your per-purchase cap, your velocity limit, and what is left of the tab. That claim, and its limits, are written down in the [threat model](SPEC.md#6-threat-model).
 
 <!-- OT-097: the 90-second demo GIF embeds here once it exists. -->
 

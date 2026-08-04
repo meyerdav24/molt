@@ -65,8 +65,9 @@ export default function DocsOverview() {
       <p>
         A child mandate can never exceed its parent on any dimension: amount, expiry, merchant
         scope, category, velocity. Each shell is scoped to one merchant, one cart hash, one amount,
-        minutes of lifetime. A fully compromised agent can spend at most one outstanding shell
-        before anomaly triggers fire. Anything unusual is held for a passkey tap on your phone: no
+        minutes of lifetime. A fully compromised agent cannot reach a store the tab has never paid,
+        and at a store already on record it is bounded by the per-purchase cap, the velocity limit,
+        and what is left of the tab. Anything unusual is held for a passkey tap on your phone: no
         approval, no shell.
       </p>
 

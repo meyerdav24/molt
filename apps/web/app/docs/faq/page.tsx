@@ -5,12 +5,14 @@ const QA: [string, React.ReactNode][] = [
   [
     'What happens when the agent is prompt-injected or fully compromised?',
     <>
-      It can spend at most one outstanding shell. Every child mandate is capped by its parent on
-      every dimension (amount, merchant, category, expiry, velocity), scoped to a single cart hash,
-      and dies after one authorization. An injected instruction to buy something else either fails
-      the narrowing rule, trips the step-up policy (no approval, no shell), or burns the one shell
-      the attacker got, which is the bounded worst case the whole design accepts and states. See the
-      threat model in the <a href="/docs/spec">spec</a>.
+      It cannot send your money anywhere new. Every child mandate is capped by its parent on every
+      dimension (amount, merchant, category, expiry, velocity), scoped to a single cart hash, and
+      dies after one authorization. An injected instruction to buy at some other store fires the
+      unknown-merchant trigger and waits for your passkey, so the classic attack never grows a
+      shell. At a store your tab already pays, the attacker is bounded by your per-purchase cap,
+      your velocity limit, and what is left of the tab, and unusual amounts are held too. That is
+      the bounded worst case the design accepts and states. See the threat model in the{' '}
+      <a href="/docs/spec">spec</a>.
     </>,
   ],
   [
