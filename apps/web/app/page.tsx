@@ -33,8 +33,30 @@ export default function Home() {
         <a href="/docs/spec">Spec</a> · <a href="/login">Sign in</a>
       </p>
 
-      {/* OT-097: the 90-second demo video embeds here once it exists.
-          <section><video ... /></section> */}
+      {/* OT-097: the demo film. nocookie host on purpose: no tracking before play. */}
+      <section style={{ margin: '2rem 0' }}>
+        <div style={{ position: 'relative', aspectRatio: '16 / 9', width: '100%' }}>
+          <iframe
+            src="https://www.youtube-nocookie.com/embed/AZ_xv7lazl0"
+            title="Hermes Agent buys office supplies with a disposable card per cart (Molt demo)"
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              border: 0,
+              borderRadius: 8,
+            }}
+          />
+        </div>
+        <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.4rem' }}>
+          Five minutes, test mode throughout, nothing staged: the agent earns testnet USDC, a
+          fingerprint signs the limits, purchases run alone, a duplicate cart is refused, an unknown
+          store waits for a thumb, and the receipt verifies offline.
+        </p>
+      </section>
 
       {/* --- the molt cycle (the first diagram, per the vocabulary card) ----- */}
       <section style={{ margin: '2.2rem 0' }}>

@@ -8,7 +8,9 @@ You delegate the way you would at a bar: show ID once, open a tab with a limit, 
 
 **The blast radius, up front:** prompt injection is assumed, not hoped away. Every purchase runs on a child mandate that can never exceed the tab you signed, is scoped to one store and one exact cart, and dies after one authorization. A compromised agent cannot send your money somewhere new: a store the tab has never paid holds for your passkey, so the classic injection, "buy this at attacker.example", never grows a shell. At a store you already use, it is bounded by your per-purchase cap, your velocity limit, and what is left of the tab. That claim, and its limits, are written down in the [threat model](SPEC.md#6-threat-model).
 
-<!-- OT-097: the 90-second demo GIF embeds here once it exists. -->
+**[Watch the five-minute demo](https://www.youtube.com/watch?v=AZ_xv7lazl0)**: the agent earns testnet USDC, a fingerprint signs the limits, purchases run alone, a duplicate cart is refused, an unknown store waits for a thumb, and the receipt verifies offline.
+
+<!-- OT-097: the tap GIF embeds here once cut. -->
 
 > **Status: test-mode beta.** Live at [moltprotocol.dev](https://moltprotocol.dev), docs at [moltprotocol.dev/docs](https://moltprotocol.dev/docs). Nothing moves real money: the reference Tab Authority runs exclusively against Stripe test mode and testnet USDC (Base Sepolia), and refuses to boot otherwise.
 
