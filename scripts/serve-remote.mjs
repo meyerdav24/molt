@@ -58,13 +58,26 @@ const shipping = {
 
 const token = process.env.MOLT_REMOTE_TOKEN ?? randomBytes(24).toString('hex');
 
+// Which Tab Authority this serves. MOLT_PUBLIC_URL is deliberately NOT a
+// fallback: it is the local dev server's own origin, and pointing a remote
+// agent at it mints mandates whose step-up links open a host where the
+// user's passkey does not exist (WebAuthn is origin-bound).
+const apiUrl = process.env.MOLT_API_URL ?? env('MOLT_API_URL');
+if (!apiUrl) {
+  die(
+    'No MOLT_API_URL. Set it in .env to the Tab Authority your tab lives on,\n' +
+      'e.g. MOLT_API_URL=https://moltprotocol.dev (or your own instance).',
+  );
+}
+console.log(`Tab Authority: ${apiUrl}`);
+
 // --- the server -------------------------------------------------------------
 const server = spawn('node', ['apps/mcp-server/dist/index.js', '--http', String(PORT)], {
   cwd: ROOT,
   env: {
     ...process.env,
     MOLT_REMOTE_TOKEN: token,
-    MOLT_API_URL: process.env.MOLT_API_URL ?? env('MOLT_PUBLIC_URL') ?? 'http://localhost:3000',
+    MOLT_API_URL: apiUrl,
     MOLT_SHIPPING_PROFILE: JSON.stringify(shipping),
     MOLT_STOREFRONT_PASSWORDS: stores.map((s) => `${s.host}|${s.password}`).join(','),
     MOLT_BOGUS_GATEWAY_HOSTS: stores.map((s) => s.host).join(','),
