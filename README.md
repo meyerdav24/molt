@@ -103,4 +103,4 @@ Design commitments, not roadmap gaps ([full list with reasoning](SPEC.md#7-what-
 
 ## License
 
-[Apache 2.0](LICENSE). The spec and reference implementation are Apache 2.0 permanently, and the open project will not be relicensed. Once independent implementations exist, spec governance is intended to move to a neutral home. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+[Apache 2.0](LICENSE). The spec and reference implementation are Apache 2.0 permanently, and the open project will not be relicensed. If Molt is useful to you, [sponsoring](https://github.com/sponsors/meyerdav24) buys maintenance time; it buys no features, because there are no features to withhold. Once independent implementations exist, spec governance is intended to move to a neutral home. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
