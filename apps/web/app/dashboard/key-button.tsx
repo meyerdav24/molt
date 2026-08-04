@@ -43,8 +43,12 @@ function claudeJson(key: string, apiUrl: string): string {
   );
 }
 
+function connectMessage(key: string): string {
+  return `Connect to my Molt tab: call the connect_tab tool with this key: ${key}`;
+}
+
 function agentInstall(key: string, apiUrl: string): string {
-  return `Add this MCP server to your own configuration (for Hermes: ~/.hermes/config.yaml under mcp_servers), fix the args path to where the molt repo is checked out, then reload your MCP servers and confirm the four molt tools are available:
+  return `Add this MCP server to your own configuration (for Hermes: ~/.hermes/config.yaml under mcp_servers), fix the args path to where the molt repo is checked out, then reload your MCP servers and confirm the five molt tools are available:
 
 ${hermesYaml(key, apiUrl)}`;
 }
@@ -134,14 +138,18 @@ export function KeyButton({ tabId }: { tabId: string }) {
             <button onClick={() => setSecret(null)}>Done</button>
           </div>
           <p style={{ fontSize: '0.85rem', margin: '0.4rem 0 0', color: '#444' }}>
-            Paste one of these into your agent host, adjust the path to your molt checkout and the
-            shipping profile, restart the host. Details:{' '}
+            Agent already connected to Molt? Paste the first block into the chat. First time on this
+            machine? Use one of the setup blocks below. Details:{' '}
             <a href="/docs/mcp" target="_blank">
               /docs/mcp
             </a>
           </p>
           <CopyBlock
-            label="Or just tell your agent (paste into the chat; it installs itself)"
+            label="Tell your agent (paste into the chat; no config, no restart)"
+            text={connectMessage(secret)}
+          />
+          <CopyBlock
+            label="Agent sets itself up (paste into the chat of an agent without Molt)"
             text={agentInstall(secret, apiUrl)}
           />
           <CopyBlock
