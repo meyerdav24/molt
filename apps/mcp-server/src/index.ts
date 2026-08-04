@@ -439,11 +439,18 @@ async function main() {
     const transports = new Map<string, StreamableHTTPServerTransport>();
     const http = createServer(async (req, res) => {
       const url = new URL(req.url ?? '/', 'http://localhost');
-      if (url.pathname !== '/mcp') {
+      // The token may travel as a bearer header or as the last path segment.
+      // Clients that cannot set custom headers (Claude Cowork connectors
+      // offer only OAuth fields) use /mcp/<token>, which makes the URL
+      // itself the credential - acceptable for a tunnel that dies on Ctrl+C
+      // and a tab that bounds the damage, but treat it like a password.
+      const authorized =
+        req.headers.authorization === `Bearer ${token}` || url.pathname === `/mcp/${token}`;
+      if (url.pathname !== '/mcp' && url.pathname !== `/mcp/${token}`) {
         res.writeHead(404).end();
         return;
       }
-      if (req.headers.authorization !== `Bearer ${token}`) {
+      if (!authorized) {
         res.writeHead(401, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'unauthorized' }));
         return;

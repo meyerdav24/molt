@@ -95,7 +95,9 @@ const watchForUrl = (chunk) => {
   const match = String(chunk).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
   if (!match || announced) return;
   announced = true;
-  const url = `${match[0]}/mcp`;
+  // Claude Cowork's connector dialog has no header field, so the token
+  // rides in the path; hosts that can set headers may use /mcp instead.
+  const url = `${match[0]}/mcp/${token}`;
   console.log(`
 ========================================================================
   Paste these into the connector settings
@@ -106,7 +108,8 @@ const watchForUrl = (chunk) => {
 
   URL     ${url}
 
-  Header  Authorization: Bearer ${token}
+  (that URL carries the token - no header needed. Hosts that support
+   headers can use ${match[0]}/mcp with: Authorization: Bearer ${token})
 
 ========================================================================
   Then, in the chat:
