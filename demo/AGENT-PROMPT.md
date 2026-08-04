@@ -69,8 +69,27 @@ notification, passkey tap, purchase resumes.
    would also be held. For the film flow, warm the tab up before rolling:
    one small brightside purchase off camera (or keep that first tap in the
    cut as the honest onboarding moment).
-1. Create the agent key, paste it into the agent host's MCP config, restart
-   (launch demo: Hermes Agent, `~/.hermes/config.yaml` under `mcp_servers`,
-   then `/reload-mcp`; Claude Desktop works identically via its JSON config)
-1. Replace `<TAB_ID>` in the system prompt with the new tab id
+1. Create the agent key on the tab detail page and hand it to the agent:
+   paste it into the chat and say "connect to my tab with this key". The
+   agent calls `connect_tab`, which stores it locally - no config editing,
+   no restart. (A key already in `~/.hermes/config.yaml` also works; the
+   button rotates, so creating a new one kills the old.)
+1. `pnpm demo:check` must say "all green".
 1. Roll.
+
+## Scene 2 (the earn loop), if you film it
+
+Two terminals, side by side with the dashboard:
+
+```sh
+# terminal 1: the paid API the agent earns from
+DEMO_SELLER_PAY_TO_ADDRESS=$(grep '^MOLT_AGENT_WALLET_ADDRESS=' .env | cut -d= -f2) \
+  node apps/demo-seller/dist/index.js
+
+# terminal 2: three payments of 0.01 testnet USDC, visible 402 -> paid -> 200
+node demo/buyer.mjs 3
+```
+
+The buyer wallet pays the agent wallet, both on Base Sepolia, real
+settlement. Balances move within a minute; `pnpm wallet:balance` shows the
+agent side.
