@@ -7,6 +7,7 @@ import {
   type SignedReceipt,
 } from '@molt/protocol';
 import { authenticateAgent } from '../../../../../../lib/agent-auth';
+import { cancelCardForMandate } from '../../../../../../lib/cards';
 import { db } from '../../../../../../lib/db';
 import { taSigningKey } from '../../../../../../lib/ta-key';
 
@@ -168,6 +169,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         values (${mandate.tab_id}, ${mandate.id}, ${agent.user_id}, 'agent', 'receipt.filed',
                 ${tx.json({ receipt_id: body.id, rung: body.rung, rail: body.rail, amount_minor: body.amount_minor })})`;
     });
+    // The shell is worn: shed it now. Waiting for the settlement webhook
+    // would leave a live card behind whenever the rail does not produce one
+    // (and "worn once, then shed" is the claim, not "shed eventually").
+    // Outside the transaction: the Stripe call must not hold DB locks.
+    try {
+      await cancelCardForMandate(mandate.id);
+    } catch {
+      // the sweep and the card's own TTL still bound this; the receipt stands
+    }
+
     return NextResponse.json({ ok: true, receipt: signed }, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : '';

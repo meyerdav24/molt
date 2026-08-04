@@ -322,6 +322,36 @@ try {
   });
   ok(r2.status === 409, 'consumed mandate / duplicate key -> 409');
 
+  // filing a receipt sheds the shell: the card dies with the purchase, not
+  // only when a settlement webhook happens to arrive (OT-098's core claim)
+  const mShed = await api('POST', `/v1/tabs/${tabId}/mandates`, {
+    key: secret,
+    body: {
+      merchant_origin: KNOWN,
+      amount_minor: 700,
+      cart_hash: 'e'.repeat(64),
+      reason: 'shed-on-file test',
+      mcc: '5732',
+    },
+  });
+  ok(mShed.status === 201, 'mandate for shed-on-file test minted');
+  const filedShed = await api('POST', `/v1/mandates/${mShed.body.mandate_id}/receipt`, {
+    key: secret,
+    body: signedReceipt({
+      mandate_id: mShed.body.mandate_id,
+      merchant: KNOWN,
+      amount_minor: 700,
+      idempotency_key: `shed-${tabId}`,
+    }),
+  });
+  ok(filedShed.status === 201, 'receipt filed');
+  const [shedCard] =
+    await sql`select status from cards where mandate_id = ${mShed.body.mandate_id}`;
+  ok(
+    !shedCard || shedCard.status === 'deactivated',
+    `filing a receipt sheds the shell (card: ${shedCard?.status ?? 'none provisioned'})`,
+  );
+
   // agent sheds an unworn shell: cancel refunds the reserved amount
   const budgetBefore = await api('GET', `/v1/tabs/${tabId}`, { key: secret });
   const mCancel = await api('POST', `/v1/tabs/${tabId}/mandates`, {
@@ -354,7 +384,9 @@ try {
   // receipts list
   const list = await api('GET', `/v1/tabs/${tabId}/receipts`, { key: secret });
   ok(
-    list.status === 200 && list.body.receipts.length === 2,
+    list.status === 200 &&
+      list.body.receipts.some((r) => r.idempotency_key === `it-${tabId}`) &&
+      list.body.receipts.some((r) => r.idempotency_key === `shed-${tabId}`),
     'receipts list returns filed receipts',
   );
 
