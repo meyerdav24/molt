@@ -104,6 +104,34 @@ export default function McpDocs() {
         </li>
       </ul>
 
+      <h2 style={{ fontSize: '1.1rem' }}>Remote clients (Claude Cowork connectors)</h2>
+      <p>
+        Cowork and Claude.ai reach custom connectors from Anthropic&apos;s cloud, so they need a
+        public HTTPS URL - unlike Hermes or Claude Desktop, which start the server locally. The Molt
+        server must stay on your machine anyway (it drives real browsers and your wallet keys never
+        leave it), so the shape is: run it locally, expose it through a tunnel.
+      </p>
+      <pre style={pre}>{`# 1. a token: this port can spend a tab, so it is never open without one
+export MOLT_REMOTE_TOKEN=$(openssl rand -hex 24)
+
+# 2. run the remote transport (plus the usual MOLT_* variables)
+node apps/mcp-server/dist/index.js --http 3940
+
+# 3. a public URL for it
+cloudflared tunnel --url http://localhost:3940     # or: ngrok http 3940`}</pre>
+      <p>
+        In Cowork: <strong>Customize → Connectors → +</strong>, name it Molt, URL{' '}
+        <code>https://your-tunnel-host/mcp</code>. Add the token as an
+        <code> Authorization: Bearer …</code> header where the connector settings allow custom
+        headers.
+      </p>
+      <p style={{ color: '#a02020' }}>
+        Treat that URL like a credential. Anyone holding it and the token can spend the tab it is
+        configured for - bounded by the tab&apos;s limits, which is the point, but bounded is not
+        the same as harmless. Stop the tunnel when you are done, and revoke the tab&apos;s agent key
+        if the URL leaked.
+      </p>
+
       <h2 style={{ fontSize: '1.1rem' }}>Starting without a key works</h2>
       <p>
         You can register the server before any tab exists: leave <code>MOLT_AGENT_KEY</code> out

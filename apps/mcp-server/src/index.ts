@@ -7,14 +7,21 @@
  *   purchase          — quote → child mandate → scoped card → adapter → receipt
  *   get_receipts      — list dual-signed receipts for a tab
  *
- * Transports: stdio (default) and SSE (--sse [port]).
+ * Transports: stdio (default), Streamable HTTP (--http [port]) for remote
+ * clients such as Claude Cowork connectors, and legacy SSE (--sse [port]).
+ *
+ * Remote transports are bearer-token gated (MOLT_REMOTE_TOKEN): the server
+ * drives real checkouts and holds a tab-scoped key, so an open port is an
+ * open wallet. Nothing is exposed without a token.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { resolveMerchant } from '@molt/adapters';
 import { z } from 'zod';
@@ -354,6 +361,58 @@ async function main() {
   const cfg = loadConfig();
   const ta = new TaClient(cfg.apiUrl, cfg.agentKey);
   const signingKey = loadOrCreateSigningKey(cfg.signingKeyPath);
+
+  const httpIndex = process.argv.indexOf('--http');
+  if (httpIndex >= 0) {
+    const port = Number(process.argv[httpIndex + 1] ?? 3940);
+    const token = process.env.MOLT_REMOTE_TOKEN;
+    if (!token || token.length < 24) {
+      throw new Error(
+        'remote transport needs MOLT_REMOTE_TOKEN (24+ chars). This port can spend a tab; it is never opened unauthenticated.',
+      );
+    }
+    const transports = new Map<string, StreamableHTTPServerTransport>();
+    const http = createServer(async (req, res) => {
+      const url = new URL(req.url ?? '/', 'http://localhost');
+      if (url.pathname !== '/mcp') {
+        res.writeHead(404).end();
+        return;
+      }
+      if (req.headers.authorization !== `Bearer ${token}`) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'unauthorized' }));
+        return;
+      }
+      const sessionId = req.headers['mcp-session-id'];
+      const existing = typeof sessionId === 'string' ? transports.get(sessionId) : undefined;
+      if (existing) {
+        await existing.handleRequest(req, res);
+        return;
+      }
+      // new session: one server instance per session, never shared
+      const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (id: string) => {
+          transports.set(id, transport);
+        },
+      });
+      transport.onclose = () => {
+        if (transport.sessionId) transports.delete(transport.sessionId);
+      };
+      // The SDK's StreamableHTTPServerTransport declares a few optional
+      // members without `| undefined`, which exactOptionalPropertyTypes
+      // rejects. The shape is correct at runtime; narrow cast rather than
+      // loosening the whole package's strictness.
+      await buildServer(cfg, ta, signingKey).connect(transport as unknown as Transport);
+      await transport.handleRequest(req, res);
+    });
+    http.listen(port, () => {
+      console.error(
+        `molt-mcp-server: streamable HTTP on http://localhost:${port}/mcp (bearer-token gated)`,
+      );
+    });
+    return;
+  }
 
   const sseIndex = process.argv.indexOf('--sse');
   if (sseIndex >= 0) {
