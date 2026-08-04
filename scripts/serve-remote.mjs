@@ -11,6 +11,7 @@
  * the wallet keys never leave it. Only the MCP port is published.
  */
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -73,6 +74,24 @@ if (!apiUrl) {
   );
 }
 console.log(`Tab Authority: ${apiUrl}`);
+
+// A stale instance (a closed terminal, a forgotten run) otherwise greets you
+// with an EADDRINUSE stack trace, which says nothing about what to do.
+await new Promise((resolve) => {
+  const probe = createServer();
+  probe.once('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      die(
+        `Port ${PORT} is already in use - most likely an older serve:remote is still running.\n` +
+          `Stop it with:  pkill -f serve-remote.mjs; pkill -f "cloudflared tunnel run"\n` +
+          `Or serve on another port:  PORT=3941 pnpm serve:remote`,
+      );
+    }
+    die(`could not bind port ${PORT}: ${e.message}`);
+  });
+  probe.once('listening', () => probe.close(() => resolve()));
+  probe.listen(PORT);
+});
 
 // --- the server -------------------------------------------------------------
 const server = spawn('node', ['apps/mcp-server/dist/index.js', '--http', String(PORT)], {
