@@ -25,7 +25,11 @@ function check(okay, name, detail = '') {
 console.log('molt demo preflight\n');
 
 // --- web app / TA -----------------------------------------------------------
-const base = process.env.MOLT_TA_URL ?? 'http://localhost:3000';
+// The authority that actually matters is the one agents talk to, which is
+// MOLT_API_URL - not this machine's dev server. Checking localhost here
+// produced a false alarm on a setup that runs entirely against the hosted
+// beta.
+const base = process.env.MOLT_TA_URL ?? env('MOLT_API_URL') ?? 'http://localhost:3000';
 try {
   const health = await (
     await fetch(`${base}/api/v1/health`, { signal: AbortSignal.timeout(5000) })
