@@ -19,7 +19,13 @@ export async function POST(req: Request) {
   if (!EMAIL_RE.test(email) || email.length > 320) {
     return NextResponse.json({ error: 'invalid_email' }, { status: 400 });
   }
-  const answer = typeof body?.answer === 'string' ? body.answer.trim().slice(0, 500) : null;
+  // Empty is null, not '': the form always sends the field, so a second
+  // signup with the box left blank would otherwise coalesce over an answer
+  // the same person gave the first time.
+  const answer =
+    typeof body?.answer === 'string' && body.answer.trim()
+      ? body.answer.trim().slice(0, 500)
+      : null;
 
   await db()`
     insert into waitlist (email, answer) values (${email}, ${answer})
