@@ -274,7 +274,10 @@ export async function purchase(
   try {
     const cart: NormalizedCart = session.cart;
     const hash = cartHash(cart);
-    const idempotencyKey = deriveIdempotencyKey(tabId, origin, hash);
+    const window = idempotencyWindow();
+    const idempotencyKey = deriveIdempotencyKey(tabId, origin, hash, window);
+    // A retry that straddles a window boundary is still the same attempt.
+    const previousKey = deriveIdempotencyKey(tabId, origin, hash, window - 1);
     onProgress?.(
       `quoted ${cart.total_minor} ${cart.currency} minor units for this exact cart; checking for duplicates`,
     );
@@ -285,13 +288,18 @@ export async function purchase(
       `/v1/tabs/${tabId}/receipts`,
     );
     if (receipts.status === 401) return keyRejected();
-    const dup = receipts.body.receipts?.find((r) => r.idempotency_key === idempotencyKey);
+    const dup = receipts.body.receipts?.find(
+      (r) => r.idempotency_key === idempotencyKey || r.idempotency_key === previousKey,
+    );
     if (dup) {
       return {
         status: 'already_purchased',
         idempotency_key: idempotencyKey,
         receipt_id: dup.id,
-        message: `this exact cart at ${origin} was already purchased on this tab (receipt ${dup.id}); refusing to double-order`,
+        message:
+          `this exact cart at ${origin} was just purchased on this tab (receipt ${dup.id}), so this ` +
+          `looks like a repeated attempt rather than a new order; refusing to double-order. ` +
+          `Buying the same cart again later is fine - the guard only covers the last hour.`,
       };
     }
 
