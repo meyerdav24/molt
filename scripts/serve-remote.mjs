@@ -56,7 +56,10 @@ const shipping = {
   phone: '+4915212345678',
 };
 
-const token = process.env.MOLT_REMOTE_TOKEN ?? randomBytes(24).toString('hex');
+// .env wins over a fresh random one: a stable token is what keeps the
+// connector URL stable across restarts.
+const token =
+  process.env.MOLT_REMOTE_TOKEN ?? env('MOLT_REMOTE_TOKEN') ?? randomBytes(24).toString('hex');
 
 // Which Tab Authority this serves. MOLT_PUBLIC_URL is deliberately NOT a
 // fallback: it is the local dev server's own origin, and pointing a remote
@@ -93,10 +96,26 @@ server.on('exit', (code) => {
 });
 
 // --- the tunnel --------------------------------------------------------------
-console.log('starting the tunnel...\n');
-const tunnel = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${PORT}`], {
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
+// A named tunnel keeps one permanent hostname, so the connector is set up
+// once and never touched again. Without one, cloudflared hands out a random
+// subdomain per run and the URL has to be re-pasted every time.
+const tunnelName = env('MOLT_TUNNEL_NAME');
+const tunnelHost = env('MOLT_TUNNEL_HOSTNAME');
+const named = Boolean(tunnelName && tunnelHost);
+console.log(
+  named ? `starting tunnel ${tunnelName} -> ${tunnelHost}...\n` : 'starting the tunnel...\n',
+);
+const tunnel = spawn(
+  'cloudflared',
+  named
+    ? ['tunnel', 'run', '--url', `http://localhost:${PORT}`, tunnelName]
+    : ['tunnel', '--url', `http://localhost:${PORT}`],
+  { stdio: ['ignore', 'pipe', 'pipe'] },
+);
+if (named) {
+  // A named tunnel never prints a URL: we already know it.
+  setTimeout(() => announce(`https://${tunnelHost}`), 3000);
+}
 tunnel.on('error', () =>
   die(
     'cloudflared is not installed. Run: brew install cloudflared  (or use ngrok http ' + PORT + ')',
@@ -104,10 +123,10 @@ tunnel.on('error', () =>
 );
 
 let announced = false;
-const watchForUrl = (chunk) => {
-  const match = String(chunk).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-  if (!match || announced) return;
+function announce(base) {
+  if (announced) return;
   announced = true;
+  const match = [base];
   // Claude Cowork's connector dialog has no header field, so the token
   // rides in the path; hosts that can set headers may use /mcp instead.
   const url = `${match[0]}/mcp/${token}`;
@@ -132,14 +151,21 @@ const watchForUrl = (chunk) => {
        "connect to my tab with this key". The agent calls connect_tab and
        is ready to buy - no restart, nothing to edit here.
 
-  Ctrl+C stops both the tunnel and the server, which makes this URL
-  worthless again. Treat it as a credential until then: whoever holds
-  the URL and token can spend this tab, within its limits.
+  This URL is stable: set it up in the connector once. Ctrl+C stops the
+  tunnel and the server, so nothing answers until you start it again.
+  Treat the URL as a credential: whoever holds it can spend this tab,
+  within its limits.
 ========================================================================
 `);
+}
+const watchForUrl = (chunk) => {
+  const match = String(chunk).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+  if (match) announce(match[0]);
 };
-tunnel.stdout.on('data', watchForUrl);
-tunnel.stderr.on('data', watchForUrl); // cloudflared prints the URL on stderr
+if (!named) {
+  tunnel.stdout.on('data', watchForUrl);
+  tunnel.stderr.on('data', watchForUrl); // cloudflared prints the URL on stderr
+}
 
 const shutdown = () => {
   tunnel.kill();
