@@ -30,10 +30,17 @@ import { loadConfig, type MoltConfig } from './config.js';
 import { purchase } from './purchase.js';
 import { BoundedQueue, QueueFullError } from './queue.js';
 import { checkRate } from './ratelimit.js';
+import { storeKey } from './key-store.js';
 import { loadOrCreateSigningKey, type AgentSigningKey } from './signing.js';
 import { TaClient, TaError } from './ta.js';
 
-export const MCP_TOOL_NAMES = ['open_tab', 'resolve_merchant', 'purchase', 'get_receipts'] as const;
+export const MCP_TOOL_NAMES = [
+  'open_tab',
+  'connect_tab',
+  'resolve_merchant',
+  'purchase',
+  'get_receipts',
+] as const;
 
 const UUID = z.string().uuid();
 
@@ -47,9 +54,7 @@ const NOT_CONNECTED = [
   '(the connection to you works fine; what is missing is the credential).',
   'A tab-scoped agent key looks like molt_sk_test_ followed by 48 hex characters;',
   'the human creates it in the Molt dashboard after the passkey ceremony, and it is shown once.',
-  "If they give you one, put it in this server's MOLT_AGENT_KEY environment variable",
-  '(the MCP configuration entry that starts this server) and restart it -',
-  'the dashboard also hands out ready-made config blocks you can apply directly.',
+  'If they give you one, call connect_tab with it - that is all it takes, no restart.',
   'If they have no tab yet, call open_tab and send them the ceremony URL.',
 ].join(' ');
 
@@ -202,6 +207,66 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
     guarded(cfg, rateKey, 'open_tab', async () => {
       const res = await ta.call('POST', '/v1/tabs');
       return textResult(res.body);
+    }),
+  );
+
+  server.registerTool(
+    'connect_tab',
+    {
+      title: 'Connect this server to a tab',
+      description:
+        'Adopt an agent key the human pastes into the chat, so this server starts acting on ' +
+        'their tab. Keys look like molt_sk_test_ followed by 48 hex characters and come from the ' +
+        'Molt dashboard (tab detail, "Agent key"), shown once. The key is stored locally on the ' +
+        'machine running this server and every other tool works immediately, with no restart. ' +
+        'Use this whenever a tool answers not_configured or the human hands you a key.',
+      inputSchema: {
+        agent_key: z
+          .string()
+          .min(20)
+          .max(200)
+          .describe('the molt_sk_test_... key from the dashboard'),
+      },
+    },
+    guarded(cfg, rateKey, 'connect_tab', async ({ agent_key }: { agent_key: string }) => {
+      const key = agent_key.trim();
+      if (!key.startsWith('molt_sk_test_')) {
+        return textResult(
+          {
+            error: 'not_a_molt_key',
+            message:
+              'that does not look like a Molt agent key. They start with molt_sk_test_ and are created in the dashboard on the tab detail page.',
+          },
+          true,
+        );
+      }
+      // Prove the key works before storing it, so a typo fails loudly here
+      // instead of quietly breaking the next purchase.
+      const probe = new TaClient(cfg.apiUrl, key);
+      const tab = await probe.tabIdentity(true);
+      if (!tab) {
+        return textResult(
+          {
+            error: 'key_rejected',
+            message:
+              'the Tab Authority did not accept that key. It may be revoked (creating a new key kills the old one) or belong to a different Molt instance. Ask for a fresh one from the dashboard.',
+          },
+          true,
+        );
+      }
+      storeKey(cfg.agentKeyPath, { agent_key: key, tab_id: tab.tab_id, api_url: cfg.apiUrl });
+      ta.setKey(key);
+      return textResult({
+        status: 'connected',
+        tab: {
+          tab_id: tab.tab_id,
+          available_minor: tab.available_minor,
+          total_minor: tab.total_minor,
+          currency: tab.currency,
+          expires_at: tab.expires_at,
+        },
+        message: `connected to tab ${tab.tab_id}. Budget available: ${tab.available_minor} of ${tab.total_minor} ${tab.currency} minor units. Purchases work now; the key is stored locally so this survives restarts.`,
+      });
     }),
   );
 

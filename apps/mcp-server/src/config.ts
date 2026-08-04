@@ -4,7 +4,12 @@
  *
  *   MOLT_API_URL                 Tab Authority base URL (default http://localhost:3000)
  *   MOLT_AGENT_KEY               tab-scoped agent key (molt_sk_test_...); created by
- *                                the human in the dashboard after the ceremony
+ *                                the human in the dashboard after the ceremony.
+ *                                Optional: without it the server still starts,
+ *                                and the `connect_tab` tool adopts a key the
+ *                                human pastes into the chat.
+ *   MOLT_AGENT_KEY_PATH          where an adopted key is stored
+ *                                (default ~/.molt/agent-key.json, mode 600)
  *   MOLT_SHIPPING_PROFILE        JSON shipping profile for checkouts (the agent
  *                                operator's delivery address)
  *   MOLT_STOREFRONT_PASSWORDS    host|password[,host|password] for password-
@@ -33,6 +38,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ShippingProfile } from '@molt/adapters';
+import { readStoredKey } from './key-store.js';
 
 export interface MoltConfig {
   apiUrl: string;
@@ -45,6 +51,7 @@ export interface MoltConfig {
   auditLogPath: string;
   walletPath: string;
   walletPassphrase: string | undefined;
+  agentKeyPath: string;
   checkoutTimeoutMs: number;
   headed: boolean;
 }
@@ -60,7 +67,12 @@ const SHIPPING_REQUIRED: (keyof ShippingProfile)[] = [
 ];
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): MoltConfig {
-  const agentKey = env.MOLT_AGENT_KEY;
+  const apiUrl = (env.MOLT_API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+  const agentKeyPath = env.MOLT_AGENT_KEY_PATH ?? join(homedir(), '.molt', 'agent-key.json');
+  // An empty variable means "unset", not "invalid": hosts routinely pass
+  // through empty strings.
+  const fromEnv = env.MOLT_AGENT_KEY ? env.MOLT_AGENT_KEY : undefined;
+  const agentKey = fromEnv ?? readStoredKey(agentKeyPath, apiUrl);
   if (agentKey !== undefined && !agentKey.startsWith('molt_sk_test_')) {
     // G1: test mode only. A key with any other prefix is refused at boot.
     throw new Error('MOLT_AGENT_KEY must be a test-mode key (molt_sk_test_...)');
@@ -91,8 +103,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MoltConfig {
 
   const moltHome = join(homedir(), '.molt');
   return {
-    apiUrl: (env.MOLT_API_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
+    apiUrl,
     agentKey,
+    agentKeyPath,
     shipping,
     storefrontPasswords,
     bogusGatewayHosts,

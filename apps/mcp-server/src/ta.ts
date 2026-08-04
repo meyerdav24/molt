@@ -34,12 +34,21 @@ export interface TabIdentity {
 
 export class TaClient {
   private tab: TabIdentity | undefined;
+  private agentKey: string | undefined;
 
   constructor(
     private readonly baseUrl: string,
-    private readonly agentKey: string | undefined,
+    agentKey: string | undefined,
     private readonly timeoutMs = 20_000,
-  ) {}
+  ) {
+    this.agentKey = agentKey;
+  }
+
+  /** Adopt a key handed over at runtime (connect_tab). */
+  setKey(key: string): void {
+    this.agentKey = key;
+    this.tab = undefined;
+  }
 
   get hasKey(): boolean {
     return this.agentKey !== undefined;

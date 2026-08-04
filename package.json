@@ -24,7 +24,8 @@
     "wallet:init": "node apps/mcp-server/dist/wallet-cli.js init",
     "wallet:address": "node apps/mcp-server/dist/wallet-cli.js address",
     "wallet:balance": "node apps/mcp-server/dist/wallet-cli.js balance",
-    "demo:check": "node demo/check.mjs"
+    "demo:check": "node demo/check.mjs",
+    "serve:remote": "node scripts/serve-remote.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

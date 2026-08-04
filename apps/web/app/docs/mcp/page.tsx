@@ -111,19 +111,13 @@ export default function McpDocs() {
         server must stay on your machine anyway (it drives real browsers and your wallet keys never
         leave it), so the shape is: run it locally, expose it through a tunnel.
       </p>
-      <pre style={pre}>{`# 1. a token: this port can spend a tab, so it is never open without one
-export MOLT_REMOTE_TOKEN=$(openssl rand -hex 24)
-
-# 2. run the remote transport (plus the usual MOLT_* variables)
-node apps/mcp-server/dist/index.js --http 3940
-
-# 3. a public URL for it
-cloudflared tunnel --url http://localhost:3940     # or: ngrok http 3940`}</pre>
+      <pre style={pre}>{`pnpm serve:remote`}</pre>
       <p>
-        In Cowork: <strong>Customize → Connectors → +</strong>, name it Molt, URL{' '}
-        <code>https://your-tunnel-host/mcp</code>. Add the token as an
-        <code> Authorization: Bearer …</code> header where the connector settings allow custom
-        headers.
+        That starts the server, opens a tunnel, and prints the URL and token to paste into{' '}
+        <strong>Customize → Connectors → +</strong> (URL ends in <code>/mcp</code>, token goes in an{' '}
+        <code>Authorization: Bearer …</code> header). No agent key is involved in the setup: you
+        paste the key into the chat afterwards and the agent calls <code>connect_tab</code>, exactly
+        as with a local host. Ctrl+C tears it all down again.
       </p>
       <p style={{ color: '#a02020' }}>
         Treat that URL like a credential. Anyone holding it and the token can spend the tab it is
