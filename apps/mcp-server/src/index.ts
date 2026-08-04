@@ -314,7 +314,10 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
                 .int()
                 .positive()
                 .describe(
-                  "Shopify variant id; find ids and prices in the store's public catalog at <store-url>/products.json",
+                  'Shopify variant id. Public stores list ids and prices at <store-url>/products.json. ' +
+                    'If that is password-protected (development stores usually are) you cannot browse it, ' +
+                    'but buying still works: this server holds the storefront password and uses it during ' +
+                    'checkout. Ask the human for the variant id and proceed.',
                 ),
               quantity: z.number().int().min(1).max(99),
             }),
