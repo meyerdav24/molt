@@ -124,8 +124,8 @@ export default function ApiDocs() {
 }`}</pre>
       <p>
         The response embeds <code>ta_signature</code> and <code>ta_public_key</code>; the document
-        verifies offline with <code>npx molt verify receipt.json</code>, no network and no database
-        needed.
+        verifies offline with <code>pnpm exec molt verify receipt.json</code>, no network and no
+        database needed.
       </p>
     </div>
   );

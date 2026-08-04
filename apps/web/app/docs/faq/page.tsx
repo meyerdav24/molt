@@ -75,9 +75,9 @@ const QA: [string, React.ReactNode][] = [
     'Why should I trust the Tab Authority?',
     <>
       You should not have to. Receipts are dual-signed (agent and TA) over canonical JSON and verify
-      offline with <code>npx molt verify</code>, so a tampering TA produces documents that fail
-      verification. The reference implementation is Apache 2.0 and self-hostable; the spec&apos;s
-      threat model treats a malicious TA as an explicit case.
+      offline with <code>pnpm exec molt verify</code>, so a tampering TA produces documents that
+      fail verification. The reference implementation is Apache 2.0 and self-hostable; the
+      spec&apos;s threat model treats a malicious TA as an explicit case.
     </>,
   ],
 ];

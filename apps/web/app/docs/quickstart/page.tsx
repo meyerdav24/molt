@@ -72,7 +72,7 @@ cp .env.example .env`}</pre>
         Ask the agent to buy an item. Watch the tab detail page: shell grown, worn once, shed.
         Download the receipt JSON from the dashboard and check it offline:
       </p>
-      <pre style={pre}>{`npx molt verify receipt.json`}</pre>
+      <pre style={pre}>{`pnpm exec molt verify receipt.json`}</pre>
       <p>
         Contributors who prefer running without Docker: <code>pnpm install</code>,{' '}
         <code>pnpm build</code>, then <code>pnpm --filter @molt/web dev</code> against any Postgres,
