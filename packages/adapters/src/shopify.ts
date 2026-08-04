@@ -191,6 +191,23 @@ async function passPasswordGate(
   return true;
 }
 
+/**
+ * Save what the page looked like when things went wrong. Failures without
+ * evidence are unfalsifiable: "declined" and "too slow" read identically in
+ * a log line, and only one of them is worth retrying.
+ */
+async function captureFailure(page: Page, evidenceDir: string, stage: string): Promise<string> {
+  try {
+    await mkdir(evidenceDir, { recursive: true });
+    const base = join(evidenceDir, `failure-${stage}-${Date.now()}`);
+    await writeFile(`${base}.html`, await page.content(), 'utf8');
+    await page.screenshot({ path: `${base}.png`, fullPage: true });
+    return `${base}.png`;
+  } catch {
+    return 'none (capture failed)';
+  }
+}
+
 async function detectChallenge(page: Page): Promise<boolean> {
   const html = (await page.content()).toLowerCase();
   return html.includes('hcaptcha') || html.includes('cf-challenge') || html.includes('recaptcha');
@@ -567,16 +584,24 @@ async function payAndConfirm(
     try {
       await page.waitForURL(/thank[-_]?you|orders\//i, { timeout });
     } catch {
+      // Keep the evidence: without it a decline, a timeout and a throttle
+      // all look the same afterwards, and the difference is what matters.
+      const snapshot = await captureFailure(page, req.evidence_dir, 'payment');
       const declined = await page
         .locator('text=/declined|abgelehnt|could not be processed/i')
         .count();
       if (declined > 0) {
-        return fail('payment', 'payment_declined', 'gateway declined the card');
+        return fail(
+          'payment',
+          'payment_declined',
+          `gateway declined the card (evidence: ${snapshot})`,
+        );
       }
       return fail(
         'confirmation',
         'confirmation_missing',
-        `no confirmation page reached (at ${page.url()})`,
+        `no confirmation page reached in ${Math.round(timeout / 1000)}s (at ${page.url()}); ` +
+          `the payment may still be processing - check the store before retrying (evidence: ${snapshot})`,
       );
     }
 
