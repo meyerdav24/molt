@@ -30,7 +30,7 @@ The merchant is deliberately not a party. It installs nothing, agrees to nothing
 | `packages/protocol` | JSON Schemas, mandate-tree engine, receipt signing, `molt verify` CLI          |
 | `packages/adapters` | Platform detector, checkout adapters, request signing (the Stamp), x402 client |
 | `apps/web`          | Reference Tab Authority: dashboard, step-up page, REST API, webhooks, docs     |
-| `apps/mcp-server`   | MCP server exposing the four agent tools                                       |
+| `apps/mcp-server`   | MCP server exposing the five agent tools                                       |
 | `apps/demo-seller`  | Demo x402 paid API                                                             |
 | `demo/`             | Demo kit: vocabulary card, agent prompt, reset script, dry-run findings        |
 | `supabase/`         | Database migrations                                                            |
@@ -60,7 +60,7 @@ The build takes under a minute, the images a few minutes to pull, and the rest o
 
 ## Connect an agent (MCP)
 
-The MCP server exposes four tools: `open_tab`, `resolve_merchant`, `purchase`, `get_receipts`. Opening a tab always happens in the browser with your passkey; the agent only ever receives the ceremony URL. Any MCP client works; two examples:
+The MCP server exposes five tools: `open_tab`, `connect_tab`, `resolve_merchant`, `purchase`, `get_receipts`. Opening a tab always happens in the browser with your passkey; the agent only ever receives the ceremony URL. Any MCP client works; two examples:
 
 Hermes Agent (`~/.hermes/config.yaml`):
 
@@ -93,9 +93,9 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-Setup order: run the web app, ask the agent to `open_tab`, complete the passkey ceremony it links you to, create an agent key in the dashboard for that tab, put the key into `MOLT_AGENT_KEY`, restart the agent host. The key is scoped to that one tab and its limits; a purchase can never exceed them.
+Setup order: run the web app, ask the agent to `open_tab`, complete the passkey ceremony it links you to, then create an agent key in the dashboard for that tab. You can hand that key to the agent in either direction: put it in `MOLT_AGENT_KEY` as above and restart the host, or simply paste it into the chat and say "connect to my tab with this key" — the agent calls `connect_tab` and stores it locally, no config editing and no restart. The key is scoped to that one tab and its limits; a purchase can never exceed them.
 
-Optional variables: `MOLT_STOREFRONT_PASSWORDS` (`host|password,...` for password-protected dev stores), `MOLT_BOGUS_GATEWAY_HOSTS` (dev stores running Shopify's Bogus Gateway, where the simulated acquirer gets its test card while the scoped card stays real), `MOLT_EVIDENCE_DIR`, `MOLT_AGENT_SIGNING_KEY_PATH`. For a remote transport run with `--sse [port]`.
+Optional variables: `MOLT_STOREFRONT_PASSWORDS` (`host|password,...` for password-protected dev stores), `MOLT_BOGUS_GATEWAY_HOSTS` (dev stores running Shopify's Bogus Gateway, where the simulated acquirer gets its test card while the scoped card stays real), `MOLT_EVIDENCE_DIR`, `MOLT_AGENT_SIGNING_KEY_PATH`. For a remote client such as a hosted connector, run with `--http [port]` (Streamable HTTP, gated by `MOLT_REMOTE_TOKEN`); `--sse [port]` still serves legacy clients.
 
 ## What Molt deliberately does not do
 
