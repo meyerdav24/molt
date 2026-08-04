@@ -19,7 +19,22 @@ export class TaError extends Error {
   }
 }
 
+export interface TabIdentity {
+  tab_id: string;
+  status: string;
+  currency: string;
+  total_minor: number;
+  available_minor: number;
+  reserved_minor: number;
+  spent_minor: number;
+  expires_at: string;
+  per_tx_max_minor?: number;
+  task_declaration?: string;
+}
+
 export class TaClient {
+  private tab: TabIdentity | undefined;
+
   constructor(
     private readonly baseUrl: string,
     private readonly agentKey: string | undefined,
@@ -28,6 +43,19 @@ export class TaClient {
 
   get hasKey(): boolean {
     return this.agentKey !== undefined;
+  }
+
+  /**
+   * The tab this key belongs to. Resolved from the key itself, so no tool
+   * ever needs a tab id from the agent, and several configured servers each
+   * answer for their own tab. Cached; call with fresh=true for live budget.
+   */
+  async tabIdentity(fresh = false): Promise<TabIdentity | null> {
+    if (this.tab && !fresh) return this.tab;
+    const res = await this.call<TabIdentity>('GET', '/v1/tab');
+    if (res.status !== 200 || !res.body.tab_id) return null;
+    this.tab = res.body;
+    return this.tab;
   }
 
   async call<T = Record<string, unknown>>(

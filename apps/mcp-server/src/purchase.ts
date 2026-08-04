@@ -37,7 +37,8 @@ import type { AgentSigningKey } from './signing.js';
 import { TaClient } from './ta.js';
 
 export interface PurchaseInput {
-  tab_id: string;
+  /** Optional: the key already determines the tab. */
+  tab_id?: string | undefined;
   merchant_url: string;
   /** Cart lines for store checkouts; irrelevant for x402 paid endpoints. */
   items?: { variant_id: number; quantity: number }[] | undefined;
@@ -45,6 +46,13 @@ export interface PurchaseInput {
   reason: string;
   /** Resume a held purchase after the user approved it via the Tap. */
   mandate_id?: string | undefined;
+  /**
+   * How long to keep waiting for the user's tap before giving up and
+   * returning step_up_pending. The checkout stays open meanwhile, so an
+   * approval completes the purchase without the human coming back to the
+   * agent at all.
+   */
+  wait_for_approval_seconds?: number | undefined;
 }
 
 export type PurchaseOutcome =
@@ -52,6 +60,7 @@ export type PurchaseOutcome =
       status: 'purchased';
       receipt: SignedReceipt;
       order_confirmation: string;
+      budget: { available_minor: number; total_minor: number; currency: string } | null;
       message: string;
     }
   | {
@@ -139,6 +148,36 @@ function tabDead(status: string | undefined): PurchaseOutcome {
   );
 }
 
+/**
+ * Wait for the human's tap while the checkout session stays open, so an
+ * approval finishes the purchase without the human returning to the agent.
+ * Returns the mandate once usable, or null on timeout (the caller then
+ * reports step_up_pending and the mandate lives on until its own TTL).
+ */
+async function waitForApproval(
+  ta: TaClient,
+  mandateId: string,
+  seconds: number,
+  onProgress?: ProgressFn,
+): Promise<MandatePoll | null> {
+  const deadline = Date.now() + seconds * 1000;
+  let announced = false;
+  for (;;) {
+    const poll = await ta.call<MandatePoll>('GET', `/v1/mandates/${mandateId}`);
+    const status = poll.body.status;
+    if (status === 'active' || status === 'approved') return poll.body;
+    if (status !== 'held') return null; // denied, expired, revoked: not ours to wait on
+    if (Date.now() >= deadline) return null;
+    if (!announced) {
+      onProgress?.(
+        `held for approval: the user got an email. Waiting up to ${seconds}s for their passkey tap; the checkout stays open meanwhile.`,
+      );
+      announced = true;
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+}
+
 /** Cancel the mandate so the card dies and the budget flows back. */
 async function shedShell(ta: TaClient, mandateId: string): Promise<boolean> {
   try {
@@ -160,6 +199,14 @@ export async function purchase(
   input: PurchaseInput,
   onProgress?: ProgressFn,
 ): Promise<PurchaseOutcome> {
+  const tabId = input.tab_id ?? (await ta.tabIdentity())?.tab_id;
+  if (!tabId) {
+    return refuse(
+      'tab_unresolved',
+      'could not determine which tab this key belongs to; the Tab Authority did not answer',
+    );
+  }
+
   // --- rung selection -------------------------------------------------------
   onProgress?.('resolving merchant platform');
   const detection = await resolveMerchant(input.merchant_url);
@@ -226,7 +273,7 @@ export async function purchase(
   try {
     const cart: NormalizedCart = session.cart;
     const hash = cartHash(cart);
-    const idempotencyKey = deriveIdempotencyKey(input.tab_id, origin, hash);
+    const idempotencyKey = deriveIdempotencyKey(tabId, origin, hash);
     onProgress?.(
       `quoted ${cart.total_minor} ${cart.currency} minor units for this exact cart; checking for duplicates`,
     );
@@ -234,7 +281,7 @@ export async function purchase(
     // --- OT-054: the same cart commits at most once ---------------------------
     const receipts = await ta.call<{ receipts?: { id: string; idempotency_key: string }[] }>(
       'GET',
-      `/v1/tabs/${input.tab_id}/receipts`,
+      `/v1/tabs/${tabId}/receipts`,
     );
     if (receipts.status === 401) return keyRejected();
     const dup = receipts.body.receipts?.find((r) => r.idempotency_key === idempotencyKey);
@@ -296,7 +343,7 @@ export async function purchase(
       card = m.card;
     } else {
       onProgress?.('requesting a child mandate scoped to exactly this cart');
-      const mint = await ta.call<MintResponse>('POST', `/v1/tabs/${input.tab_id}/mandates`, {
+      const mint = await ta.call<MintResponse>('POST', `/v1/tabs/${tabId}/mandates`, {
         merchant_origin: origin,
         amount_minor: cart.total_minor,
         cart_hash: hash,
@@ -305,16 +352,29 @@ export async function purchase(
         items_summary: cart.lines.map((l) => `${l.quantity}× ${l.title}`),
       });
       if (mint.status === 202 && mint.body.mandate_id) {
-        return {
-          status: 'step_up_pending',
-          mandate_id: mint.body.mandate_id,
-          triggers: mint.body.triggers,
-          message:
-            `user approval requested via email (the Tap). The purchase is on hold, nothing was charged. ` +
-            `Once the user approves, call purchase again with the same arguments plus mandate_id="${mint.body.mandate_id}".`,
-        };
-      }
-      if (mint.status !== 201 || !mint.body.mandate_id) {
+        // Hold the checkout open and wait for the tap: an approval finishes
+        // the purchase without the human ever returning to the agent.
+        const waitSeconds = input.wait_for_approval_seconds ?? 180;
+        const approved =
+          waitSeconds > 0
+            ? await waitForApproval(ta, mint.body.mandate_id, waitSeconds, onProgress)
+            : null;
+        if (!approved) {
+          return {
+            status: 'step_up_pending',
+            mandate_id: mint.body.mandate_id,
+            triggers: mint.body.triggers,
+            message:
+              `user approval requested via email (the Tap). The purchase is on hold, nothing was charged. ` +
+              `Once the user approves, call purchase again with the same arguments plus mandate_id="${mint.body.mandate_id}".`,
+          };
+        }
+        onProgress?.('approved by the user; continuing the checkout that stayed open');
+        mandateId = mint.body.mandate_id;
+        parentId = approved.parent_id;
+        bounds = approved.bounds;
+        card = approved.card;
+      } else if (mint.status !== 201 || !mint.body.mandate_id) {
         if (mint.status === 401) return keyRejected();
         if (mint.body.error === 'tab_not_active') {
           return tabDead((mint.body as { status?: string }).status);
@@ -324,11 +384,12 @@ export async function purchase(
           `the Tab Authority refused the child mandate (${mint.status})`,
           mint.body.violations ?? mint.body,
         );
+      } else {
+        mandateId = mint.body.mandate_id;
+        parentId = mint.body.parent_id;
+        bounds = mint.body.bounds;
+        card = mint.body.card;
       }
-      mandateId = mint.body.mandate_id;
-      parentId = mint.body.parent_id;
-      bounds = mint.body.bounds;
-      card = mint.body.card;
     }
 
     if (!bounds || !parentId) {
@@ -393,7 +454,7 @@ export async function purchase(
     );
     const body: ReceiptBody = {
       id: randomUUID(),
-      tab_id: input.tab_id,
+      tab_id: tabId,
       mandate_id: mandateId,
       rung: 'L1',
       rail: 'card_stripe_test',
@@ -428,11 +489,24 @@ export async function purchase(
       };
     }
 
+    const after = await ta.tabIdentity(true);
     return {
       status: 'purchased',
       receipt: filed.body.receipt,
       order_confirmation: result.order_confirmation,
-      message: `purchased at ${origin} for ${result.total_minor} ${cart.currency} minor units, rung L1. Receipt ${filed.body.receipt.id} is dual-signed and verifiable via 'molt verify'.`,
+      budget: after
+        ? {
+            available_minor: after.available_minor,
+            total_minor: after.total_minor,
+            currency: after.currency,
+          }
+        : null,
+      message:
+        `purchased at ${origin} for ${result.total_minor} ${cart.currency} minor units, rung L1. ` +
+        `Receipt ${filed.body.receipt.id} is dual-signed and verifiable via 'molt verify'.` +
+        (after
+          ? ` Tab budget left: ${after.available_minor} of ${after.total_minor} ${after.currency} minor units.`
+          : ''),
     };
   } finally {
     await session.abandon();
@@ -462,6 +536,10 @@ async function purchaseL0(
   onProgress?: ProgressFn,
 ): Promise<PurchaseOutcome> {
   const origin = new URL(input.merchant_url).origin;
+  const tabId = input.tab_id ?? (await ta.tabIdentity())?.tab_id;
+  if (!tabId) {
+    return refuse('tab_unresolved', 'could not determine which tab this key belongs to');
+  }
 
   if (!cfg.walletPassphrase) {
     return refuse(
@@ -555,7 +633,7 @@ async function purchaseL0(
       amount_atomic: atomic.toString(),
       nonce: randomUUID(),
     });
-    const mint = await ta.call<MintResponse>('POST', `/v1/tabs/${input.tab_id}/mandates`, {
+    const mint = await ta.call<MintResponse>('POST', `/v1/tabs/${tabId}/mandates`, {
       merchant_origin: origin,
       amount_minor: cents,
       cart_hash: hash,
@@ -642,13 +720,13 @@ async function purchaseL0(
 
   // --- receipt --------------------------------------------------------------
   const idempotencyKey = deriveIdempotencyKey(
-    input.tab_id,
+    tabId,
     origin,
     sha256CanonicalHex({ tx: result.settlement?.transaction ?? randomUUID() }),
   );
   const body: ReceiptBody = {
     id: randomUUID(),
-    tab_id: input.tab_id,
+    tab_id: tabId,
     mandate_id: mandateId,
     rung: 'L0',
     rail: 'usdc_x402_testnet',
@@ -680,10 +758,21 @@ async function purchaseL0(
     };
   }
 
+  const afterL0 = await ta.tabIdentity(true);
   return {
     status: 'purchased',
     receipt: filed.body.receipt,
     order_confirmation: result.settlement?.transaction ?? 'settled',
-    message: `paid ${(Number(atomic) / 1e6).toFixed(2)} testnet USDC at ${origin}, rung L0, settled on ${ALLOWED_NETWORK}. Receipt ${filed.body.receipt.id} is dual-signed and verifiable offline.`,
+    budget: afterL0
+      ? {
+          available_minor: afterL0.available_minor,
+          total_minor: afterL0.total_minor,
+          currency: afterL0.currency,
+        }
+      : null,
+    message:
+      `paid ${(Number(atomic) / 1e6).toFixed(2)} testnet USDC at ${origin}, rung L0, settled on ${ALLOWED_NETWORK}. ` +
+      `Receipt ${filed.body.receipt.id} is dual-signed and verifiable offline.` +
+      (afterL0 ? ` Tab budget left: ${afterL0.available_minor} of ${afterL0.total_minor}.` : ''),
   };
 }

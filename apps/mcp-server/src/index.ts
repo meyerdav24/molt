@@ -230,7 +230,9 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         'was charged). max_amount_minor is your ceiling in minor units (cents); the actual mandate ' +
         'is minted for the exact quoted total.',
       inputSchema: {
-        tab_id: UUID.describe('the tab to buy under'),
+        tab_id: UUID.optional().describe(
+          'optional: the agent key already determines the tab, so omit this unless you have a reason',
+        ),
         merchant_url: z.string().url().describe('the store, e.g. https://shop.example.com'),
         items: z
           .array(
@@ -262,6 +264,15 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
         mandate_id: UUID.optional().describe(
           'only to resume a purchase that returned step_up_pending',
         ),
+        wait_for_approval_seconds: z
+          .number()
+          .int()
+          .min(0)
+          .max(600)
+          .optional()
+          .describe(
+            "if the purchase is held for the user's passkey tap, keep the checkout open and wait this long for it (default 180). 0 returns immediately with step_up_pending.",
+          ),
       },
     },
     guarded(cfg, rateKey, 'purchase', async (input: Parameters<typeof purchase>[3], extra) => {
@@ -306,10 +317,13 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
       title: 'List receipts',
       description:
         'List all receipts for a tab: what was bought where, for how much, on which ladder rung ' +
-        'and rail, with evidence hashes and the mandate chain. Use it to report spending to the user.',
-      inputSchema: { tab_id: UUID },
+        'and rail, with evidence hashes and the mandate chain, plus the tab budget (total, ' +
+        'available, reserved by pending purchases, spent). Use it to report spending to the user.',
+      inputSchema: {
+        tab_id: UUID.optional().describe('optional: the agent key already determines the tab'),
+      },
     },
-    guarded(cfg, rateKey, 'get_receipts', async ({ tab_id }: { tab_id: string }) => {
+    guarded(cfg, rateKey, 'get_receipts', async ({ tab_id }: { tab_id?: string | undefined }) => {
       if (!ta.hasKey) {
         return textResult(
           {
@@ -319,11 +333,17 @@ function buildServer(cfg: MoltConfig, ta: TaClient, signingKey: AgentSigningKey)
           true,
         );
       }
-      const res = await ta.call<{ error?: string }>('GET', `/v1/tabs/${tab_id}/receipts`);
+      const tab = await ta.tabIdentity(true);
+      const id = tab_id ?? tab?.tab_id;
+      if (!id) {
+        return textResult({ error: 'key_rejected', message: KEY_REJECTED }, true);
+      }
+      const res = await ta.call<{ error?: string }>('GET', `/v1/tabs/${id}/receipts`);
       if (res.status === 401) {
         return textResult({ error: 'key_rejected', message: KEY_REJECTED }, true);
       }
-      return textResult(res.body, res.status !== 200);
+      // Report spending, which means the budget belongs here too.
+      return textResult({ ...res.body, tab }, res.status !== 200);
     }),
   );
 
