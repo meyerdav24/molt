@@ -31,6 +31,8 @@ export {
 export {
   cartHash,
   deriveIdempotencyKey,
+  idempotencyWindow,
+  IDEMPOTENCY_WINDOW_MS,
   normalizeCart,
   preflightValidate,
   type CartLine,

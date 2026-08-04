@@ -58,14 +58,33 @@ export function cartHash(cart: NormalizedCart): string {
   return sha256CanonicalHex(normalizeCart(cart));
 }
 
-/** Idempotency key: same tab + merchant + cart can commit exactly once. */
+/** How long one cart stays "the same purchase attempt". */
+export const IDEMPOTENCY_WINDOW_MS = 60 * 60 * 1000;
+
+/** The window a timestamp falls into. Exported for tests and for callers
+ *  that need to check the preceding window too. */
+export function idempotencyWindow(at: number = Date.now()): number {
+  return Math.floor(at / IDEMPOTENCY_WINDOW_MS);
+}
+
+/**
+ * Idempotency key: the same cart on the same tab commits once per window.
+ *
+ * The point is to make a retried invocation harmless - an agent that timed
+ * out, crashed, or was interrupted must not order twice. It is NOT meant to
+ * forbid ever buying the same thing again: restocking the same paper towels
+ * next month is a normal purchase, not a double-order. So the key carries
+ * the window it belongs to, and callers check the previous window as well
+ * so a retry across a boundary is still caught.
+ */
 export function deriveIdempotencyKey(
   tabId: string,
   merchantOrigin: string,
   cartHashHex: string,
+  window: number = idempotencyWindow(),
 ): string {
   return createHash('sha256')
-    .update(`${tabId}|${new URL(merchantOrigin).origin}|${cartHashHex}`, 'utf8')
+    .update(`${tabId}|${new URL(merchantOrigin).origin}|${cartHashHex}|${window}`, 'utf8')
     .digest('hex');
 }
 

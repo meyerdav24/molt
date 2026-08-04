@@ -16,6 +16,7 @@ import {
   ALLOWED_NETWORK,
   cartHash,
   deriveIdempotencyKey,
+  idempotencyWindow,
   fetchWithX402,
   loadWallet,
   parseEnvelope,

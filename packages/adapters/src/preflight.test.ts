@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import {
   cartHash,
   deriveIdempotencyKey,
+  idempotencyWindow,
+  IDEMPOTENCY_WINDOW_MS,
   normalizeCart,
   preflightValidate,
   type NormalizedCart,
@@ -113,4 +115,30 @@ test('normalization uppercases currency and sorts lines', () => {
   const n = normalizeCart(messy);
   assert.equal(n.currency, 'EUR');
   assert.equal(n.merchant_origin, 'https://store.example.com');
+});
+
+test('idempotency guards a retry, not a later repurchase', () => {
+  const tab = '11111111-1111-1111-1111-111111111111';
+  const merchant = 'https://store.example.com';
+  const cart = 'a'.repeat(64);
+  const now = Date.now();
+  const w = idempotencyWindow(now);
+
+  // same attempt, seconds apart: one key, so the second commit is refused
+  assert.equal(
+    deriveIdempotencyKey(tab, merchant, cart, w),
+    deriveIdempotencyKey(tab, merchant, cart, idempotencyWindow(now + 5_000)),
+  );
+
+  // the same cart tomorrow is a new purchase, not a double-order
+  assert.notEqual(
+    deriveIdempotencyKey(tab, merchant, cart, w),
+    deriveIdempotencyKey(tab, merchant, cart, idempotencyWindow(now + 24 * IDEMPOTENCY_WINDOW_MS)),
+  );
+
+  // and a different tab never collides with this one
+  assert.notEqual(
+    deriveIdempotencyKey(tab, merchant, cart, w),
+    deriveIdempotencyKey('22222222-2222-2222-2222-222222222222', merchant, cart, w),
+  );
 });

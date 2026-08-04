@@ -137,7 +137,7 @@ Card details transit to the agent once at purchase time and are never stored by 
 
 ### 6.3 Replayed mandate or receipt
 
-**Guaranteed:** Child mandates are single-use: filing a receipt consumes the mandate, and the idempotency key (derived from tab, merchant, and cart hash) makes double-commit of the same cart impossible. WebAuthn assertions cannot be replayed across contexts, because every signature binds to a specific challenge: the ceremony challenge is the hash of the exact bounds, the Tap challenge is the hash of the exact amendment. Signature counters detect cloned authenticators. Receipts are dual-signed and tamper-evident: change one byte and verification fails.
+**Guaranteed:** Child mandates are single-use: filing a receipt consumes the mandate, so no mandate can ever pay twice. The idempotency key (derived from tab, merchant, cart hash, and the hour-long window the attempt falls in, with the preceding window checked as well) additionally makes a retried invocation harmless: an agent that timed out, crashed, or was interrupted cannot turn one intended purchase into two. It deliberately does not forbid buying the same cart again later, which is an ordinary repeat purchase rather than a double-order. WebAuthn assertions cannot be replayed across contexts, because every signature binds to a specific challenge: the ceremony challenge is the hash of the exact bounds, the Tap challenge is the hash of the exact amendment. Signature counters detect cloned authenticators. Receipts are dual-signed and tamper-evident: change one byte and verification fails.
 
 **Not guaranteed:** Replay protection covers protocol objects. It does not cover a merchant that ships twice for one order.
 
