@@ -10,7 +10,7 @@ You delegate the way you would at a bar: show ID once, open a tab with a limit, 
 
 **[Watch the five-minute demo](https://www.youtube.com/watch?v=AZ_xv7lazl0)**: the agent earns testnet USDC, a fingerprint signs the limits, purchases run alone, a duplicate cart is refused, an unknown store waits for a thumb, and the receipt verifies offline.
 
-<!-- OT-097: the tap GIF embeds here once cut. -->
+![A held purchase waits on the phone; one passkey tap approves it and the agent continues alone](demo/tap.gif)
 
 > **Status: test-mode beta.** Live at [moltprotocol.dev](https://moltprotocol.dev), docs at [moltprotocol.dev/docs](https://moltprotocol.dev/docs). Nothing moves real money: the reference Tab Authority runs exclusively against Stripe test mode and testnet USDC (Base Sepolia), and refuses to boot otherwise.
 
